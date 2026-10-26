@@ -15,12 +15,18 @@ const SERVICE_TEMPLATE_DIR = path.resolve(__dirname, '../../../templates/service
 /**
  * Builds helper variable blocks for the service template based on options and detected HTTP client.
  */
-function buildServiceVars({ nameVariants, clientInfo, isPaginated, language }) {
+function buildServiceVars({ nameVariants, clientInfo, isPaginated, language, isServer = false }) {
   const isTs = language === 'ts';
   const { name, Name } = nameVariants;
 
   // 1. Import block
-  const importBlock = clientInfo.importStatement;
+  const importBlock = isServer
+    ? "import { db } from '@/lib/db';\n"
+    : clientInfo.importStatement;
+
+  const basePathBlock = isServer
+    ? '// Server Data Access Layer (DAL) interacting with database client\n'
+    : `const BASE_PATH = '/${nameVariants.nameKebab}s';\n`;
 
   // 2. Types block (TS only)
   let typesBlock = '';
@@ -64,14 +70,24 @@ export type Update${Name}Input = Partial<Create${Name}Input>;`;
     ? (isPaginated ? `: Promise<PageResult<${Name}>>` : `: Promise<${Name}[]>`)
     : '';
 
-  // 4. Method bodies depending on client (axios vs fetch with custom module vs raw fetch)
+  // 4. Method bodies depending on client (server db vs axios vs custom fetch vs raw fetch)
   let getMethodBody = '';
   let getByIdMethodBody = '';
   let createMethodBody = '';
   let updateMethodBody = '';
   let deleteMethodBody = '';
 
-  if (clientInfo.client === 'axios') {
+  if (isServer) {
+    if (isPaginated) {
+      getMethodBody = `    const page = params?.page || 1;\n    const pageSize = params?.pageSize || 10;\n    const [items, total] = await Promise.all([\n      db.${nameVariants.nameCamel}.findMany({\n        skip: (page - 1) * pageSize,\n        take: pageSize,\n      }),\n      db.${nameVariants.nameCamel}.count(),\n    ]);\n    return { items, total, page, pageSize };`;
+    } else {
+      getMethodBody = `    return await db.${nameVariants.nameCamel}.findMany();`;
+    }
+    getByIdMethodBody = `    return await db.${nameVariants.nameCamel}.findUniqueOrThrow({\n      where: { id },\n    });`;
+    createMethodBody = `    return await db.${nameVariants.nameCamel}.create({\n      data,\n    });`;
+    updateMethodBody = `    return await db.${nameVariants.nameCamel}.update({\n      where: { id },\n      data,\n    });`;
+    deleteMethodBody = `    await db.${nameVariants.nameCamel}.delete({\n      where: { id },\n    });`;
+  } else if (clientInfo.client === 'axios') {
     if (isPaginated) {
       getMethodBody = `    const response = await api.get(BASE_PATH, { params });\n    return response.data;`;
     } else {
@@ -149,6 +165,7 @@ export type Update${Name}Input = Partial<Create${Name}Input>;`;
   return {
     importBlock,
     typesBlock,
+    basePathBlock,
     getParamDef,
     getReturnType,
     getMethodBody,
@@ -171,6 +188,7 @@ export function registerService(generate) {
     .option('--feature <featureName>', 'Generate service within a specific feature directory')
     .option('--paginated', 'Include pagination parameters and PageResult types')
     .option('--with-mocks', 'Generate mock data fixture file alongside service')
+    .option('--server', 'Generate server-side domain service / DAL using database client (@/lib/db)')
     .option('--dry-run', 'Preview changes without writing to disk')
     .option('--force', 'Overwrite existing files')
     .addHelpText(
@@ -179,6 +197,7 @@ export function registerService(generate) {
 Examples:
   $ lumen generate service user
   $ lumen g service user --paginated
+  $ lumen g service user --server
   $ lumen g service billing --feature subscription
   $ lumen g service product --with-mocks --dry-run
   $ lumen g service order --force -j`
@@ -191,6 +210,7 @@ Examples:
       const isForce = Boolean(cmdOpts.force || globals.force);
       const isPaginated = Boolean(cmdOpts.paginated);
       const withMocks = Boolean(cmdOpts.withMocks);
+      const isServer = Boolean(cmdOpts.server);
 
       try {
         const validatedName = validateName(name);
@@ -225,8 +245,10 @@ Examples:
         targetDir = paths.services;
       }
 
-      // Check HTTP stack
-      const clientInfo = detectHttpClient(root, targetDir);
+      // Check HTTP or Server stack
+      const clientInfo = isServer
+        ? { client: 'server-db', importStatement: "import { db } from '@/lib/db';\n", hasCustomClient: false }
+        : detectHttpClient(root, targetDir);
 
       const language = manifest?.tooling?.language || 'ts';
       const nameVariants = buildNameVariants(validatedName);
@@ -235,6 +257,7 @@ Examples:
         clientInfo,
         isPaginated,
         language,
+        isServer,
       });
 
       const vars = {
@@ -289,6 +312,7 @@ Examples:
           dryRun: isDryRun,
           force: isForce,
           paginated: isPaginated,
+          server: isServer,
           withMocks,
           client: clientInfo.client,
           created: result.created,
@@ -302,9 +326,9 @@ Examples:
         process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       } else {
         if (isDryRun) {
-          process.stdout.write(`\n[DRY RUN] Generator plan for service "${validatedName}":\n`);
+          process.stdout.write(`\n[DRY RUN] Generator plan for ${isServer ? 'server ' : ''}service "${validatedName}":\n`);
         } else {
-          process.stdout.write(`\nGenerated service "${validatedName}":\n`);
+          process.stdout.write(`\nGenerated ${isServer ? 'server ' : ''}service "${validatedName}":\n`);
         }
 
         for (const item of result.plan) {
