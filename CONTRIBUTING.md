@@ -40,4 +40,4 @@ CI gates: `ci.yml` (lint + test + `npm publish --dry-run`) and `eslint.yml` (SAR
 ## References
 
 - Roadmap & versioning: `ROADMAP.md`, `docs/PLAN.md`, `CHANGELOG.md`
-- create-lumen counterpart: `LUMEN-SH/create-lumen` ADR 0002 / BRANCHING.md
+- create-lumen counterpart: `strophix-software/create-lumen` ADR 0002 / BRANCHING.md

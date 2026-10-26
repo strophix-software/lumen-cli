@@ -77,7 +77,7 @@ git tag v1.0.0-alpha.1 && git push origin v1.0.0-alpha.1
 #   title: "chore: back-merge release/1.0.0-alpha.1 into develop"
 ```
 
-Dist-tags: `alpha` → `npx @lumen-sh/lumen@alpha`, `beta` → `@beta`, `rc` → `@rc`, `next` → generic, `latest` → stable.
+Dist-tags: `alpha` → `npx @lumen-sh/cli@alpha`, `beta` → `@beta`, `rc` → `@rc`, `next` → generic, `latest` → stable.
 
 ### 3. Stable `v1.0.0` (M5)
 

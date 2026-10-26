@@ -11,7 +11,7 @@ describe('lumen-cli bootstrap', () => {
   });
 
   it('should load valid package.json with version and ESM type', () => {
-    expect(pkg.name).toBe('@lumen-sh/lumen');
+    expect(pkg.name).toBe('@lumen-sh/cli');
     expect(pkg.type).toBe('module');
     expect(pkg.version).toBeDefined();
     expect(pkg.bin).toEqual({

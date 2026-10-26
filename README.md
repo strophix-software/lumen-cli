@@ -1,6 +1,6 @@
 # lumen-cli
 
-> npm package: **`@lumen-sh/lumen`** — binaries `lumen` and `lm`. (This repository keeps the name `lumen-cli`.)
+> npm package: **`@lumen-sh/cli`** — binaries `lumen` and `lm`. (This repository keeps the name `lumen-cli`.)
 
 > Day-to-day CLI for Lumen projects.
 
@@ -10,10 +10,10 @@
 
 ```bash
 # Global installation
-npm install -g @lumen-sh/lumen
+npm install -g @lumen-sh/cli
 
 # Or run directly with npx
-npx @lumen-sh/lumen --help
+npx @lumen-sh/cli --help
 ```
 
 ## Command Aliases
@@ -93,14 +93,14 @@ Supports the same options as `lumen create`.
 
 ## Compatibility
 
-`lumen-cli` `v1` reads only the `create-lumen` **v2** manifest (`lumen.config.json`, `manifestVersion: 2`, incl. v2.1 `preset`/`validation`/`harness`). Developed against `create-lumen@2.0.0-alpha.2`; v1.x manifests are rejected.
+`lumen-cli` `v1` reads only the `create-lumen` **v2** manifest (`lumen.config.json`, `manifestVersion: 2`, incl. v2.1 `preset`/`validation`/`harness`). Developed against `create-lumen@^2.0.0-beta.1`; v1.x manifests are rejected.
 
 ## Config Reader
 
 The CLI discovers and loads the project's configuration from `lumen.config.json`:
 
 ```javascript
-import { readConfig, findConfigFile, ConfigError } from '@lumen-sh/lumen';
+import { readConfig, findConfigFile, ConfigError } from '@lumen-sh/cli';
 // or from 'src/config/index.js'
 ```
 
@@ -177,18 +177,21 @@ The generator inspects the target project's `package.json` dependencies:
 
 ### `lumen generate page <name>`
 
-Scaffold a route page component (`<Name>Page`) for React + Vite projects:
+Scaffold a route page component (`<Name>Page`) for React + Vite or Next.js projects:
 
 ```bash
 lumen generate page settings
+lumen g page "(public)/catalog"
+lumen g page "auctions/[id]"
+lumen g page dashboard --client
 lumen g page billing --register
-lumen g page dashboard --dry-run
 ```
 
-- **Target Destination**: Emits `<Name>Page.tsx` (or `.jsx`) under `paths.pages` (`src/app/router` for feature-based architecture, `src/pages` for type-based architecture).
-- **Route Snippet**: Automatically discovers existing router files (`index.tsx`, `routes.tsx`, `router.tsx`) in `paths.pages` and prints the exact route import and route definition snippet.
-- **Auto-Registration**: Pass `--register` to automatically insert the route into the router file if a `// lumen:routes` marker comment is present.
-- **Next.js Projects**: Next.js App Router conventions are tracked in issue #32 and are not yet supported.
+- **React + Vite Projects**: Emits `<Name>Page.tsx` (or `.jsx`) under `paths.pages` (`src/app/router` or `src/pages`), automatically detects router files, and offers `--register` to insert the route if `// lumen:routes` is present.
+- **Next.js Projects**:
+  - **App Router**: Emits `<paths.pages>/<path>/page.tsx` (or `.jsx`), with native support for route groups like `(public)/catalog` and dynamic route segments like `auctions/[id]`. Pass `--client` to mark the component with `'use client'`.
+  - **Pages Router**: Emits `<paths.pages>/<path>.tsx` (or `.jsx`).
+  - Next.js pages leverage native filesystem routing with no manual router file registration required.
 
 ### `lumen generate store <name>`
 

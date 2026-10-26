@@ -82,9 +82,9 @@ jobs:
               echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
               ;;
           esac
-          if npm view "@lumen-sh/lumen@$VERSION" version >/dev/null 2>&1; then
+          if npm view "@lumen-sh/cli@$VERSION" version >/dev/null 2>&1; then
             echo "publishable=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::@lumen-sh/lumen@$VERSION is already published on npm; publish skipped."
+            echo "::notice::@lumen-sh/cli@$VERSION is already published on npm; publish skipped."
           else
             echo "publishable=true" >> "$GITHUB_OUTPUT"
           fi

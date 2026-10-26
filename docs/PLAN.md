@@ -14,7 +14,7 @@ flowchart LR
     M4["📚 M4 · v1.0.0-beta.2<br/>Docs engine"]
     M5["🩺 M5 · v1.0.0<br/>Doctor, barrels &amp; docs"]
 
-    M1 -->|"npx @lumen-sh/lumen create my-app"| M2
+    M1 -->|"npx @lumen-sh/cli create my-app"| M2
     M2 -->|"lumen g &lt;artifact&gt; writes files"| M3
     M3 -->|"g ui resolves Registry/shadcn"| M4
     M4 -->|"docs generation works"| M5
