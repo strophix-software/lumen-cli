@@ -213,7 +213,7 @@ export async function executeGenerateForm(name, options = {}) {
   });
 
   // Call agent context sync if enabled
-  if (manifest.agentDocs) {
+  if (manifest.agentDocs && !options.dryRun) {
     await syncAgentContext(root);
   }
 

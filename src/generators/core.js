@@ -191,13 +191,47 @@ export function applyPlan(plan, { dryRun = false, force = false } = {}) {
 }
 
 /**
- * Stub hook for agent context synchronization.
+ * Synchronizes the .lumen agent context directory when manifest.agentDocs is enabled.
+ * Emits .lumen/project.json, .lumen/architecture.json, and .lumen/conventions.md.
+ * In architecture.json, populates `modules` array with discovered feature directories if paths.features is defined.
  * Reference: issue #31.
  *
  * @param {string} root Project root directory
  */
-export async function syncAgentContext(/* root */) {
-  // TODO(#31): sync agent context on generation when manifest.agentDocs is enabled
+export async function syncAgentContext(root) {
+  try {
+    const { manifest, paths } = readConfig({ cwd: root });
+    if (!manifest?.agentDocs) return;
+
+    const { emitAgentContext } = await import('create-lumen/src/agent-context.js');
+    await emitAgentContext(root, manifest);
+
+    // Discover feature modules deterministically if paths.features is configured
+    const lumenDir = path.join(root, '.lumen');
+    const archFile = path.join(lumenDir, 'architecture.json');
+    if (fs.existsSync(archFile)) {
+      try {
+        const arch = JSON.parse(fs.readFileSync(archFile, 'utf8'));
+        let modules = [];
+        if (paths?.features) {
+          const featuresDir = path.resolve(root, paths.features);
+          if (fs.existsSync(featuresDir)) {
+            const entries = fs.readdirSync(featuresDir, { withFileTypes: true });
+            modules = entries
+              .filter((d) => d.isDirectory())
+              .map((d) => d.name)
+              .sort();
+          }
+        }
+        arch.modules = modules;
+        fs.writeFileSync(archFile, JSON.stringify(arch, null, 2) + '\n', 'utf8');
+      } catch {
+        // Ignore JSON parse error
+      }
+    }
+  } catch {
+    // Gracefully handle if config cannot be read
+  }
 }
 
 /**
@@ -239,8 +273,8 @@ export async function runGenerator({ kind, name, templateDir, options = {} }) {
     force: Boolean(options.force),
   });
 
-  // Call agent context sync if enabled
-  if (manifest.agentDocs) {
+  // Call agent context sync if enabled (never during dry-run)
+  if (manifest.agentDocs && !options.dryRun) {
     await syncAgentContext(root);
   }
 

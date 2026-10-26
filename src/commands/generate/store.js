@@ -128,7 +128,7 @@ Examples:
       });
 
       // Sync agent context if enabled
-      if (manifest.agentDocs) {
+      if (manifest.agentDocs && !isDryRun) {
         await syncAgentContext(root);
       }
 

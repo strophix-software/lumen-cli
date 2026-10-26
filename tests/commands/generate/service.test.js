@@ -112,7 +112,7 @@ describe('lumen generate service command', () => {
         JSON.stringify({ name: 'app', dependencies: {} }, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'user']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'user']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const servicePath = path.join(tmpDir, fixture.manifest.paths.services, 'user.service.ts');
@@ -146,7 +146,7 @@ describe('lumen generate service command', () => {
         JSON.stringify({ name: 'app', dependencies: {} }, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'generate', 'service', 'product']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'generate', 'service', 'product']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const servicePath = path.join(tmpDir, fixture.manifest.paths.services, 'product.service.js');
@@ -176,7 +176,7 @@ describe('lumen generate service command', () => {
         JSON.stringify({ name: 'app', dependencies: { axios: '^1.7.0' } }, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'order', '--paginated']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'order', '--paginated']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const servicePath = path.join(tmpDir, fixture.manifest.paths.services, 'order.service.ts');
@@ -199,7 +199,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'item', '--with-mocks']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'item', '--with-mocks']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const servicePath = path.join(tmpDir, fixture.manifest.paths.services, 'item.service.ts');
@@ -225,7 +225,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'billing', '--feature', 'billing-feature']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'billing', '--feature', 'billing-feature']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const expectedDir = path.join(tmpDir, fixture.manifest.paths.features, 'billing-feature', 'services');
@@ -244,7 +244,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(noneFixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'billing', '--feature', 'auth']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'billing', '--feature', 'auth']).finished;
       expect(process.exitCode).toBe(1);
       expect(stderrOutput).toContain('feature architecture is not supported');
     });
@@ -258,7 +258,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'payment', '--dry-run']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'payment', '--dry-run']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const servicePath = path.join(tmpDir, fixture.manifest.paths.services, 'payment.service.ts');
@@ -281,12 +281,12 @@ describe('lumen generate service command', () => {
       fs.writeFileSync(targetPath, '// CUSTOM ORIGINAL CONTENT', 'utf8');
 
       // Run without --force
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'customer']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'customer']).finished;
       expect(process.exitCode).toBeUndefined();
       expect(fs.readFileSync(targetPath, 'utf8')).toBe('// CUSTOM ORIGINAL CONTENT');
 
       // Run with --force
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'customer', '--force']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'customer', '--force']).finished;
       expect(process.exitCode).toBeUndefined();
       expect(fs.readFileSync(targetPath, 'utf8')).toContain('export const customerService = {');
     });
@@ -300,7 +300,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, '-j', 'g', 'service', 'session']);
+      await runCli(['node', 'lumen', '-c', tmpDir, '-j', 'g', 'service', 'session']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const parsed = JSON.parse(stdoutOutput.trim());
@@ -329,7 +329,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'smoke', '--paginated', '--with-mocks']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'smoke', '--paginated', '--with-mocks']).finished;
 
       const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'smoke.service.ts');
       const mocksFile = path.join(tmpDir, fixture.manifest.paths.services, 'smoke.mocks.ts');
@@ -357,7 +357,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'item', '--server']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'item', '--server']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'item.service.ts');
@@ -383,7 +383,7 @@ describe('lumen generate service command', () => {
         JSON.stringify(fixture.manifest, null, 2)
       );
 
-      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'user', '--server', '--paginated']);
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'user', '--server', '--paginated']).finished;
       expect(process.exitCode).toBeUndefined();
 
       const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'user.service.ts');
