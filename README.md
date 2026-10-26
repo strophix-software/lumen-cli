@@ -193,6 +193,22 @@ lumen g page billing --register
   - **Pages Router**: Emits `<paths.pages>/<path>.tsx` (or `.jsx`).
   - Next.js pages leverage native filesystem routing with no manual router file registration required.
 
+### `lumen generate layout <name>` (alias: `lumen g layout <name>`, `lumen g l <name>`)
+
+Scaffold a layout component for Next.js App Router route groups or React projects:
+
+```bash
+lumen g layout "(public)"
+lumen g layout "(auth)"
+lumen g layout "(admin)"
+lumen g layout root
+lumen g layout dashboard --client
+```
+
+- **Next.js App Router**: Emits `<paths.pages>/<group>/layout.tsx` (or `.jsx`), receiving `{ children }: { children: React.ReactNode }`. Supports route groups like `(auth)`, `(public)`, nested layouts, and root layout (`lumen g layout root`).
+- **React + Vite**: Emits `<paths.components>/layouts/<Name>Layout.tsx` (or `.jsx`).
+- **Options**: `--client` to add `'use client'`, `--dry-run`, `--force`.
+
 ### `lumen generate store <name>`
 
 Generates an application state store tailored to your project's state library (automatically detected from `package.json`):
