@@ -267,4 +267,83 @@ describe('lumen g feature command', () => {
       }
     }
   });
+
+  it('keeps .lumen/ files in sync after feature generation when agentDocs: true (#31)', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures.find(
+      (f) => f.manifest.architecture?.preset === 'feature-based' && f.manifest.paths?.features
+    ) || fixtures[0];
+
+    const manifestWithAgentDocs = {
+      ...fixture.manifest,
+      agentDocs: true,
+    };
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(manifestWithAgentDocs, null, 2)
+    );
+
+    const program1 = createTestProgram();
+    await program1.parseAsync(['node', 'lumen', 'g', 'feature', 'orders']);
+
+    const lumenDir = path.join(tmpDir, '.lumen');
+    expect(fs.existsSync(lumenDir)).toBe(true);
+    expect(fs.existsSync(path.join(lumenDir, 'project.json'))).toBe(true);
+    expect(fs.existsSync(path.join(lumenDir, 'conventions.md'))).toBe(true);
+
+    const archFile = path.join(lumenDir, 'architecture.json');
+    expect(fs.existsSync(archFile)).toBe(true);
+    const arch1 = JSON.parse(fs.readFileSync(archFile, 'utf8'));
+    expect(arch1.modules).toEqual(['orders']);
+
+    // Generate a second feature and ensure deterministic sorted modules
+    const program2 = createTestProgram();
+    await program2.parseAsync(['node', 'lumen', 'g', 'feature', 'auth']);
+
+    const arch2 = JSON.parse(fs.readFileSync(archFile, 'utf8'));
+    expect(arch2.modules).toEqual(['auth', 'orders']);
+  });
+
+  it('does not create or modify .lumen/ when agentDocs is false (#31)', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures[0];
+
+    const manifestWithoutAgentDocs = {
+      ...fixture.manifest,
+      agentDocs: false,
+    };
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(manifestWithoutAgentDocs, null, 2)
+    );
+
+    const program = createTestProgram();
+    await program.parseAsync(['node', 'lumen', 'g', 'feature', 'products']);
+
+    const lumenDir = path.join(tmpDir, '.lumen');
+    expect(fs.existsSync(lumenDir)).toBe(false);
+  });
+
+  it('does not create .lumen/ when running with --dry-run even if agentDocs is true (#31)', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures[0];
+
+    const manifestWithAgentDocs = {
+      ...fixture.manifest,
+      agentDocs: true,
+    };
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(manifestWithAgentDocs, null, 2)
+    );
+
+    const program = createTestProgram();
+    await program.parseAsync(['node', 'lumen', 'g', 'feature', 'checkout', '--dry-run']);
+
+    const lumenDir = path.join(tmpDir, '.lumen');
+    expect(fs.existsSync(lumenDir)).toBe(false);
+  });
 });

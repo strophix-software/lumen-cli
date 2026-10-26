@@ -298,7 +298,7 @@ Examples:
         force: isForce,
       });
 
-      if (manifest.agentDocs) {
+      if (manifest.agentDocs && !isDryRun) {
         await syncAgentContext(root);
       }
 

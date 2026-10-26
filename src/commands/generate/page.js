@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readConfig } from '../../config/index.js';
 import { LumenError, EXIT } from '../../errors.js';
-import { runGenerator } from '../../generators/core.js';
+import { runGenerator, syncAgentContext } from '../../generators/core.js';
 import { buildNameVariants } from '../../generators/names.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -196,7 +196,7 @@ function registerRouteInFile({ routerFilePath, snippet, dryRun }) {
  * @param {string} params.root Project root
  * @returns {object} Generator execution summary
  */
-function generateNextPage({ name, options, manifest, paths, root }) {
+async function generateNextPage({ name, options, manifest, paths, root }) {
   const isAppRouter = manifest.framework?.variant !== 'pages-router';
   const language = options.language || manifest.tooling?.language || 'ts';
   const ext = language === 'ts' ? 'tsx' : 'jsx';
@@ -240,6 +240,10 @@ export default ${routeInfo.componentName};
   if (!options.dryRun && action !== 'skip') {
     fs.mkdirSync(path.dirname(absFilePath), { recursive: true });
     fs.writeFileSync(absFilePath, content, 'utf8');
+  }
+
+  if (manifest?.agentDocs && !options.dryRun) {
+    await syncAgentContext(root);
   }
 
   if (options.json) {
@@ -325,7 +329,7 @@ Examples:
 
       // Next.js App Router / Pages Router generation
       if (manifest?.framework?.name === 'next') {
-        return generateNextPage({ name, options, manifest, paths, root });
+        return await generateNextPage({ name, options, manifest, paths, root });
       }
 
       const variants = buildNameVariants(name);

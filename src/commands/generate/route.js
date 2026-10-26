@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readConfig } from '../../config/index.js';
 import { LumenError, EXIT } from '../../errors.js';
+import { syncAgentContext } from '../../generators/core.js';
 
 const ALLOWED_HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
@@ -268,6 +269,10 @@ Examples:
       if (!options.dryRun && action !== 'skip') {
         fs.mkdirSync(path.dirname(absFilePath), { recursive: true });
         fs.writeFileSync(absFilePath, content, 'utf8');
+      }
+
+      if (manifest?.agentDocs && !options.dryRun) {
+        await syncAgentContext(root);
       }
 
       if (options.json) {
