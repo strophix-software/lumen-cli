@@ -299,7 +299,7 @@ export function registerPage(generate) {
 Examples:
   $ lumen generate page settings
   $ lumen g page "(public)/catalog"
-  $ lumen g page "auctions/[id]"
+  $ lumen g page "items/[id]"
   $ lumen g page dashboard --client
   $ lumen g page billing --register
   $ lumen g page dashboard --dry-run
