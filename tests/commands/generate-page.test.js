@@ -167,22 +167,22 @@ describe('lumen g page command', () => {
 
     const program = createCli();
     await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', '(public)/catalog']);
-    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'auctions/[id]']);
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'items/[id]']);
 
     const targetDir = nextFixture.manifest.paths.pages;
     const catalogFile = path.join(tmpDir, targetDir, '(public)', 'catalog', 'page.tsx');
-    const auctionDetailFile = path.join(tmpDir, targetDir, 'auctions', '[id]', 'page.tsx');
+    const itemDetailFile = path.join(tmpDir, targetDir, 'items', '[id]', 'page.tsx');
 
     expect(fs.existsSync(catalogFile)).toBe(true);
-    expect(fs.existsSync(auctionDetailFile)).toBe(true);
+    expect(fs.existsSync(itemDetailFile)).toBe(true);
 
     const catalogContent = fs.readFileSync(catalogFile, 'utf8');
     expect(catalogContent).toContain('export function CatalogPage()');
     expect(stdoutOutput).toContain('Route ready: /catalog');
 
-    const auctionContent = fs.readFileSync(auctionDetailFile, 'utf8');
-    expect(auctionContent).toContain('export function AuctionsIdPage()');
-    expect(stdoutOutput).toContain('Route ready: /auctions/[id]');
+    const itemContent = fs.readFileSync(itemDetailFile, 'utf8');
+    expect(itemContent).toContain('export function ItemsIdPage()');
+    expect(stdoutOutput).toContain('Route ready: /items/[id]');
   });
 
   it('supports --client flag to prepend "use client" in Next.js App Router', async () => {

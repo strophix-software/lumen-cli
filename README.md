@@ -182,14 +182,14 @@ Scaffold a route page component (`<Name>Page`) for React + Vite or Next.js proje
 ```bash
 lumen generate page settings
 lumen g page "(public)/catalog"
-lumen g page "auctions/[id]"
+lumen g page "items/[id]"
 lumen g page dashboard --client
 lumen g page billing --register
 ```
 
 - **React + Vite Projects**: Emits `<Name>Page.tsx` (or `.jsx`) under `paths.pages` (`src/app/router` or `src/pages`), automatically detects router files, and offers `--register` to insert the route if `// lumen:routes` is present.
 - **Next.js Projects**:
-  - **App Router**: Emits `<paths.pages>/<path>/page.tsx` (or `.jsx`), with native support for route groups like `(public)/catalog` and dynamic route segments like `auctions/[id]`. Pass `--client` to mark the component with `'use client'`.
+  - **App Router**: Emits `<paths.pages>/<path>/page.tsx` (or `.jsx`), with native support for route groups like `(public)/catalog` and dynamic route segments like `items/[id]`. Pass `--client` to mark the component with `'use client'`.
   - **Pages Router**: Emits `<paths.pages>/<path>.tsx` (or `.jsx`).
   - Next.js pages leverage native filesystem routing with no manual router file registration required.
 
@@ -208,6 +208,23 @@ lumen g layout dashboard --client
 - **Next.js App Router**: Emits `<paths.pages>/<group>/layout.tsx` (or `.jsx`), receiving `{ children }: { children: React.ReactNode }`. Supports route groups like `(auth)`, `(public)`, nested layouts, and root layout (`lumen g layout root`).
 - **React + Vite**: Emits `<paths.components>/layouts/<Name>Layout.tsx` (or `.jsx`).
 - **Options**: `--client` to add `'use client'`, `--dry-run`, `--force`.
+
+### `lumen generate route <endpoint>` (alias: `lumen g route <endpoint>`, `lumen g api <endpoint>`)
+
+Scaffold a Next.js App Router API Route Handler:
+
+```bash
+lumen g route users
+lumen g api users/[id]
+lumen g route products --methods "GET,POST,PUT,DELETE"
+lumen g route auth/login --methods POST --auth
+```
+
+- **Next.js App Router**: Emits `<paths.pages>/api/<endpoint>/route.ts` (or `.js`) with typed HTTP handlers (`NextRequest`, `NextResponse`), Promise-based route parameter context (e.g. `context.params`), and consistent error formatting.
+- **Options**:
+  - `-m, --methods <verbs>` — Comma-separated list of HTTP verbs (`GET,POST,PUT,DELETE,PATCH`, default: `GET,POST`).
+  - `--auth` — Injects cookie/authorization header token verification pattern.
+  - `--dry-run`, `--force`, `--json`.
 
 ### `lumen generate store <name>`
 
