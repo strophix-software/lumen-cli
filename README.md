@@ -157,6 +157,7 @@ Generates a typed CRUD service client (`get`, `getById`, `create`, `update`, `de
 
 ```bash
 lumen g service user
+lumen g service user --server
 lumen g service order --paginated
 lumen g service billing --feature subscription
 lumen g service product --with-mocks --dry-run
@@ -164,6 +165,7 @@ lumen g service session --force -j
 ```
 
 **Options:**
+- `--server` — Generate a server-side domain service / Data Access Layer (DAL) that connects directly to the database via `@/lib/db`, rather than creating a client-side HTTP fetch wrapper.
 - `--feature <featureName>` — Generate service scoped inside feature directory (`paths.features/<featureName>/services`). Fails with error if the architecture preset does not support features (e.g. `none`).
 - `--paginated` — Generate pagination query parameters and `PageResult<T>` wrapper for list operations.
 - `--with-mocks` — Emit `<name>.mocks.ts` (or `.js`) fixture file with mock records.

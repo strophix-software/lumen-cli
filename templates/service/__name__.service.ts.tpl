@@ -1,7 +1,6 @@
 {{importBlock}}
 {{typesBlock}}
-const BASE_PATH = '/{{nameKebab}}s';
-
+{{basePathBlock}}
 export const {{nameCamel}}Service = {
   /**
    * Fetch list of {{name}} resources.

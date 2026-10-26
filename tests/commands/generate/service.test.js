@@ -347,5 +347,53 @@ describe('lumen generate service command', () => {
       });
       expect(transpileResult2.outputText).toBeDefined();
     });
+
+    it('generates server-side service / DAL importing db client from @/lib/db (#55)', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.paths?.services);
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'item', '--server']);
+      expect(process.exitCode).toBeUndefined();
+
+      const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'item.service.ts');
+      expect(fs.existsSync(serviceFile)).toBe(true);
+
+      const content = fs.readFileSync(serviceFile, 'utf8');
+      expect(content).toContain("import { db } from '@/lib/db';");
+      expect(content).toContain('db.item.findMany()');
+      expect(content).toContain('db.item.findUniqueOrThrow({');
+      expect(content).toContain('db.item.create({');
+      expect(content).toContain('db.item.update({');
+      expect(content).toContain('db.item.delete({');
+      expect(content).not.toContain('fetch(');
+      expect(stdoutOutput).toContain('Generated server service "item":');
+    });
+
+    it('generates server-side service with pagination when --server and --paginated are passed', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.paths?.services);
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'user', '--server', '--paginated']);
+      expect(process.exitCode).toBeUndefined();
+
+      const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'user.service.ts');
+      expect(fs.existsSync(serviceFile)).toBe(true);
+
+      const content = fs.readFileSync(serviceFile, 'utf8');
+      expect(content).toContain("import { db } from '@/lib/db';");
+      expect(content).toContain('db.user.findMany({');
+      expect(content).toContain('db.user.count()');
+      expect(content).toContain('skip: (page - 1) * pageSize');
+    });
   });
 });
