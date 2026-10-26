@@ -130,9 +130,11 @@ describe('lumen g page command', () => {
     expect(fs.readFileSync(pageFile, 'utf8')).toContain('export function ReportsPage()');
   });
 
-  it('throws LumenError when project framework is Next.js with reference to issue #32', async () => {
+  it('scaffolds a route page in Next.js App Router at paths.pages/<name>/page.tsx', async () => {
     const fixtures = await loadValidFixtures();
-    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+    const nextFixture = fixtures.find(
+      (f) => f.manifest.framework?.name === 'next' && f.manifest.framework?.variant === 'app-router'
+    ) || fixtures.find((f) => f.manifest.framework?.name === 'next');
     expect(nextFixture).toBeDefined();
 
     fs.writeFileSync(
@@ -141,16 +143,111 @@ describe('lumen g page command', () => {
     );
 
     const program = createCli();
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'settings']);
+
+    const targetDir = nextFixture.manifest.paths.pages;
+    const pageFile = path.join(tmpDir, targetDir, 'settings', 'page.tsx');
+
+    expect(fs.existsSync(pageFile)).toBe(true);
+    const content = fs.readFileSync(pageFile, 'utf8');
+    expect(content).toContain('export function SettingsPage()');
+    expect(content).toContain('export default SettingsPage;');
+    expect(content).toContain('data-testid="settings-page"');
+    expect(stdoutOutput).toContain('Route ready: /settings (Next.js App Router file-system routing)');
+  });
+
+  it('scaffolds route groups and dynamic parameters in Next.js App Router', async () => {
+    const fixtures = await loadValidFixtures();
+    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(nextFixture.manifest, null, 2)
+    );
+
+    const program = createCli();
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', '(public)/catalog']);
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'auctions/[id]']);
+
+    const targetDir = nextFixture.manifest.paths.pages;
+    const catalogFile = path.join(tmpDir, targetDir, '(public)', 'catalog', 'page.tsx');
+    const auctionDetailFile = path.join(tmpDir, targetDir, 'auctions', '[id]', 'page.tsx');
+
+    expect(fs.existsSync(catalogFile)).toBe(true);
+    expect(fs.existsSync(auctionDetailFile)).toBe(true);
+
+    const catalogContent = fs.readFileSync(catalogFile, 'utf8');
+    expect(catalogContent).toContain('export function CatalogPage()');
+    expect(stdoutOutput).toContain('Route ready: /catalog');
+
+    const auctionContent = fs.readFileSync(auctionDetailFile, 'utf8');
+    expect(auctionContent).toContain('export function AuctionsIdPage()');
+    expect(stdoutOutput).toContain('Route ready: /auctions/[id]');
+  });
+
+  it('supports --client flag to prepend "use client" in Next.js App Router', async () => {
+    const fixtures = await loadValidFixtures();
+    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(nextFixture.manifest, null, 2)
+    );
+
+    const program = createCli();
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'dashboard', '--client']);
+
+    const targetDir = nextFixture.manifest.paths.pages;
+    const pageFile = path.join(tmpDir, targetDir, 'dashboard', 'page.tsx');
+
+    expect(fs.existsSync(pageFile)).toBe(true);
+    const content = fs.readFileSync(pageFile, 'utf8');
+    expect(content.startsWith("'use client';")).toBe(true);
+    expect(content).toContain('export function DashboardPage()');
+  });
+
+  it('scaffolds a route page in Next.js Pages Router at paths.pages/<name>.tsx', async () => {
+    const fixtures = await loadValidFixtures();
+    const baseFixture = fixtures.find((f) => f.manifest.framework?.name === 'next') || fixtures[0];
+
+    const pagesRouterManifest = JSON.parse(JSON.stringify(baseFixture.manifest));
+    pagesRouterManifest.framework = { name: 'next', variant: 'pages-router' };
+    pagesRouterManifest.paths.pages = 'src/pages';
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(pagesRouterManifest, null, 2)
+    );
+
+    const program = createCli();
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'billing']);
+
+    const pageFile = path.join(tmpDir, 'src/pages', 'billing.tsx');
+
+    expect(fs.existsSync(pageFile)).toBe(true);
+    const content = fs.readFileSync(pageFile, 'utf8');
+    expect(content).toContain('export function BillingPage()');
+    expect(content).toContain('export default BillingPage;');
+    expect(stdoutOutput).toContain('Route ready: /billing (Next.js Pages Router file-system routing)');
+  });
+
+  it('rejects invalid or traversal route paths in Next.js', async () => {
+    const fixtures = await loadValidFixtures();
+    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(nextFixture.manifest, null, 2)
+    );
+
+    const program = createCli();
     await expect(
-      program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'settings'])
+      program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', '../malicious'])
     ).rejects.toThrow(LumenError);
 
-    try {
-      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'settings']);
-    } catch (err) {
-      expect(err.message).toContain('Next.js page generation is tracked in issue #32');
-      expect(err.hint).toContain('#32');
-    }
+    await expect(
+      program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'bad!segment'])
+    ).rejects.toThrow(LumenError);
   });
 
   it('prints route snippet when router file exists without --register', async () => {

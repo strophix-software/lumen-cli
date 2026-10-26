@@ -19,7 +19,7 @@ pipeline) live in [`docs/PLAN.md`](./docs/PLAN.md).
 > **DoD:** `lumen` installs (ESM/bin), has a command framework with
 > help/version, reads `lumen.config.json` v2/v2.1 (Zod via `create-lumen`, rejects v1),
 > `lumen config` works, and `lumen create` / `lumen init` delegates to
-> `create-lumen@^2`. Result: `npx @lumen-sh/lumen create my-app` scaffolds a
+> `create-lumen@^2`. Result: `npx @lumen-sh/cli create my-app` scaffolds a
 > project.
 
 - [x] #1 Bootstrap lumen-cli package (ESM, bin, CI, publish)
@@ -83,8 +83,9 @@ pipeline) live in [`docs/PLAN.md`](./docs/PLAN.md).
 | `v2.0.0-alpha.0` | 2026-09-20 | Manifest v2, shared contract (cl#9), Zod validator + strict v1 rejection (cl#14), path mapping (cl#15), shared fixtures (cl#28), `--yes/--manifest/--template` (cl#29) → **unblocks lc#3, lc#5** |
 | `v2.0.0-alpha.1` | 2026-10-02 | Manifest **v2.1**: `architecture.preset` + `validation`, `harness.commands` (cl#52), `.lumen/` agent context (cl#54), drift gate (cl#55) |
 | `v2.0.0-alpha.2` | 2026-10-06 | Capabilities engine, fragment composition, `none`/`hybrid` architectures (cl#34), shadcn/ui (cl#33 → **unblocks lc#9**), Bootstrap dropped (cl#51) |
+| `v2.0.0-beta.1` | 2026-10-26 | Full Next.js support (App Router, Pages Router, presets `next-ts`/`next-js`/`next-pages-ts`/`next-pages-js`), `strophix-software` org transfer → **unblocks lc#32** |
 
-Still open upstream: Next.js (cl#8, #18–#22, beta) — blocks the Next.js variants of lc#11/lc#14.
+Landed upstream: Next.js (cl#8, #18–#22, beta.1) — unblocks the Next.js variants of lc#11/lc#14 (tracked in lc#32).
 
 ---
 

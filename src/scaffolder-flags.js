@@ -77,7 +77,13 @@ export function validateScaffolderFlags(options = {}) {
     );
   }
 
-  const frameworkName = options.framework || (options.template && PRESETS[options.template]?.frameworkName);
+  let frameworkName = options.framework;
+  if (frameworkName && frameworkName.includes(':')) {
+    frameworkName = frameworkName.split(':')[0];
+  }
+  if (!frameworkName && options.template && PRESETS[options.template]) {
+    frameworkName = PRESETS[options.template].frameworkName;
+  }
   if (chosenArch !== undefined && frameworkName) {
     const allowed = frameworkName === 'react' ? REACT_ARCHITECTURES : NEXT_ARCHITECTURES;
     if (!allowed.includes(chosenArch)) {
@@ -243,8 +249,18 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
       docsLanguage: preset.docsLanguage || 'en',
     };
 
-    let frameworkName = framework || preset.frameworkName || 'react';
+    let frameworkName = preset.frameworkName || 'react';
     let frameworkVariant = preset.frameworkVariant || (frameworkName === 'next' ? 'app-router' : 'vite');
+    if (framework) {
+      if (framework.includes(':')) {
+        const [fn, fv] = framework.split(':');
+        frameworkName = fn;
+        frameworkVariant = fv;
+      } else {
+        frameworkName = framework;
+        frameworkVariant = frameworkName === 'next' ? 'app-router' : 'vite';
+      }
+    }
 
     try {
       const built = buildManifest(responses, { frameworkName, frameworkVariant });

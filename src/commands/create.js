@@ -54,6 +54,7 @@ Examples:
   $ lumen create my-app
   $ lumen create my-app -y
   $ lumen create my-app --template react-ts
+  $ lumen create my-app --template next-ts
   $ lumen create my-app --arch feature-based
   $ lumen create my-app --manifest ./lumen.config.json
   $ lumen create my-app -y --linter oxlint --formatter oxfmt`
@@ -88,6 +89,7 @@ Examples:
   $ lumen init
   $ lumen init -y
   $ lumen init --template react-ts
+  $ lumen init --template next-ts
   $ lumen init --arch feature-based
   $ lumen init --manifest ./lumen.config.json
   $ lumen init -y --linter oxlint --formatter oxfmt`
