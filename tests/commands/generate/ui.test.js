@@ -10,11 +10,18 @@ import {
   resolveUiComponent,
   fetchLumenRegistry,
   fetchShadcnRegistry,
+  fetchFromRegistryUrl,
   listUiComponents,
   checkUiDependencies,
   installPeerDependencies,
   ensureCnUtil,
   executeApplyTheme,
+  findComponentsJson,
+  readComponentsJson,
+  parseComponentIdentifier,
+  resolveAliasToPath,
+  rewriteUtilsImport,
+  applyRscDirective,
 } from '../../../src/commands/generate/ui.js';
 import { LumenError } from '../../../src/errors.js';
 
@@ -788,6 +795,458 @@ describe('lumen generate ui command', () => {
       expect(jsPlan).not.toBeNull();
       expect(jsPlan.relPath).toBe('src/lib/utils.js');
       expect(jsPlan.contents).not.toContain('ClassValue');
+    });
+
+    it('findComponentsJson and readComponentsJson find and parse components.json', () => {
+      expect(readComponentsJson(tmpDir)).toBeNull();
+      expect(findComponentsJson(tmpDir)).toBeNull();
+
+      const sampleConfig = {
+        style: 'new-york',
+        rsc: true,
+        aliases: {
+          utils: '@/shared/utils/cn',
+          ui: '@/components/ui',
+        },
+        registries: {
+          '@lumen': 'https://custom-registry.lumen.dev/r',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(sampleConfig, null, 2)
+      );
+
+      const parsed = readComponentsJson(tmpDir);
+      expect(parsed).toEqual(sampleConfig);
+
+      // Verify nested subfolder walking up to project root
+      const subDir = path.join(tmpDir, 'src', 'features', 'auth');
+      fs.mkdirSync(subDir, { recursive: true });
+      expect(readComponentsJson(subDir)).toEqual(sampleConfig);
+    });
+
+    it('fetchFromRegistryUrl fetches component JSON from specified registry base URL', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({
+          name: 'navbar',
+          type: 'block',
+          files: [{ path: 'Navbar.tsx', contentTs: 'export function Navbar() {}' }],
+        }),
+      });
+
+      const res = await fetchFromRegistryUrl('https://example.com/r', 'navbar', { fetch: mockFetch });
+      expect(res).not.toBeNull();
+      expect(res.name).toBe('navbar');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/r/navbar.json',
+        expect.any(Object)
+      );
+    });
+
+    it('parseComponentIdentifier extracts scope and component name', () => {
+      expect(parseComponentIdentifier('button')).toEqual({
+        scope: null,
+        name: 'button',
+        raw: 'button',
+      });
+
+      expect(parseComponentIdentifier('@lumen/app-shell')).toEqual({
+        scope: '@lumen',
+        name: 'app-shell',
+        raw: '@lumen/app-shell',
+      });
+
+      expect(parseComponentIdentifier('@shadcn/dialog')).toEqual({
+        scope: '@shadcn',
+        name: 'dialog',
+        raw: '@shadcn/dialog',
+      });
+
+      expect(parseComponentIdentifier('@acme_corp/hero-banner')).toEqual({
+        scope: '@acme_corp',
+        name: 'hero-banner',
+        raw: '@acme_corp/hero-banner',
+      });
+
+      expect(() => parseComponentIdentifier('@bad scope/button')).toThrow(LumenError);
+    });
+
+    it('resolveAliasToPath resolves @/ and ~/ to relative paths', () => {
+      // tmpDir has no src directory yet
+      expect(resolveAliasToPath('@/components/ui', tmpDir)).toBe('components/ui');
+
+      // Now create src directory in tmpDir
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+      expect(resolveAliasToPath('@/components/ui', tmpDir)).toBe('src/components/ui');
+      expect(resolveAliasToPath('~/shared/utils/cn', tmpDir)).toBe('src/shared/utils/cn');
+      expect(resolveAliasToPath('src/custom/path', tmpDir)).toBe('src/custom/path');
+    });
+
+    it('rewriteUtilsImport rewrites @/lib/utils to target alias', () => {
+      const code = `import { cn } from "@/lib/utils";\nimport { foo } from '@/lib/utils';\n`;
+      const rewritten = rewriteUtilsImport(code, '@/shared/utils/cn');
+      expect(rewritten).toContain('import { cn } from "@/shared/utils/cn";');
+      expect(rewritten).toContain("import { foo } from '@/shared/utils/cn';");
+
+      // No rewrite if target alias is default @/lib/utils
+      expect(rewriteUtilsImport(code, '@/lib/utils')).toBe(code);
+    });
+
+    it('applyRscDirective applies or strips use client based on rsc setting', () => {
+      const interactiveCode = `import { useState } from "react";\nexport function Counter() { const [c, setC] = useState(0); return <div/>; }`;
+      const nonInteractiveCode = `export function Label() { return <span>Label</span>; }`;
+      const existingClientCode = `'use client';\n\nimport { useState } from "react";`;
+
+      // rsc: true adds 'use client' to interactive components
+      const withRsc = applyRscDirective(interactiveCode, true);
+      expect(withRsc.startsWith("'use client';\n\n")).toBe(true);
+
+      // rsc: true does not duplicate 'use client' if already present
+      expect(applyRscDirective(existingClientCode, true)).toBe(existingClientCode);
+
+      // rsc: true does not add 'use client' to pure non-interactive components
+      expect(applyRscDirective(nonInteractiveCode, true)).toBe(nonInteractiveCode);
+
+      // rsc: false strips 'use client'
+      const stripped = applyRscDirective(existingClientCode, false);
+      expect(stripped.startsWith("'use client'")).toBe(false);
+      expect(stripped).toContain('import { useState } from "react";');
+    });
+  });
+
+  describe('components.json full integration (Punto 2)', () => {
+    it('uses custom Lumen registry from components.json registries["@lumen"]', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      const customRegistryUrl = 'https://custom-registry.strophix.dev/r';
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            registries: {
+              '@lumen': customRegistryUrl,
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.startsWith(customRegistryUrl)) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'custom-card',
+              type: 'block',
+              dependencies: ['clsx'],
+              files: [
+                {
+                  path: 'CustomCard.tsx',
+                  contentTs: 'export function CustomCard() { return <div>Custom Card</div>; }',
+                },
+              ],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      const result = await executeGenerateUi('custom-card', {
+        cwd: tmpDir,
+        fetch: mockFetch,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.source).toBe('lumen');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('custom-registry.strophix.dev'),
+        expect.any(Object)
+      );
+      expect(fs.existsSync(path.join(tmpDir, fixture.manifest.paths.ui, 'CustomCard.tsx'))).toBe(true);
+    });
+
+    it('resolves scoped component @lumen/button and @shadcn/dialog', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      const resultLumen = await executeGenerateUi('@lumen/data-table', { cwd: tmpDir });
+      expect(resultLumen.source).toBe('lumen');
+      expect(resultLumen.scope).toBe('@lumen');
+      expect(resultLumen.name).toBe('data-table');
+      expect(resultLumen.fullName).toBe('@lumen/data-table');
+      expect(fs.existsSync(path.join(tmpDir, fixture.manifest.paths.ui, 'DataTable.tsx'))).toBe(true);
+
+      const resultShadcn = await executeGenerateUi('@shadcn/button', { cwd: tmpDir });
+      expect(resultShadcn.source).toBe('shadcn');
+      expect(resultShadcn.scope).toBe('@shadcn');
+      expect(resultShadcn.name).toBe('button');
+      expect(resultShadcn.fullName).toBe('@shadcn/button');
+      expect(fs.existsSync(path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx'))).toBe(true);
+    });
+
+    it('resolves custom scoped component @my-org/widget from components.json registries', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      const orgRegistryUrl = 'https://registry.my-org.io/r';
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            registries: {
+              '@my-org': orgRegistryUrl,
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.startsWith(orgRegistryUrl)) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'widget',
+              type: 'block',
+              dependencies: ['clsx'],
+              files: [
+                {
+                  path: 'Widget.tsx',
+                  contentTs: 'export function Widget() { return <div>My Org Widget</div>; }',
+                },
+              ],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      const result = await executeGenerateUi('@my-org/widget', {
+        cwd: tmpDir,
+        fetch: mockFetch,
+      });
+
+      expect(result.source).toBe('@my-org');
+      expect(result.scope).toBe('@my-org');
+      expect(result.name).toBe('widget');
+      expect(fs.existsSync(path.join(tmpDir, fixture.manifest.paths.ui, 'Widget.tsx'))).toBe(true);
+    });
+
+    it('rejects scoped component when scope is not configured in components.json', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      await expect(
+        executeGenerateUi('@unconfigured-scope/hero', { cwd: tmpDir })
+      ).rejects.toThrow(LumenError);
+
+      await expect(
+        executeGenerateUi('@unconfigured-scope/hero', { cwd: tmpDir })
+      ).rejects.toThrow(/Registry for scope "@unconfigured-scope" is not configured/);
+    });
+
+    it('rewrites utils import and creates utility at custom aliases.utils path', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      // Create src directory
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            aliases: {
+              utils: '@/shared/utils/cn',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const result = await executeGenerateUi('button', { cwd: tmpDir });
+      expect(result.success).toBe(true);
+
+      const customCnPath = path.join(tmpDir, 'src/shared/utils/cn.ts');
+      expect(fs.existsSync(customCnPath)).toBe(true);
+
+      const buttonPath = path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx');
+      const buttonCode = fs.readFileSync(buttonPath, 'utf8');
+      expect(buttonCode).toContain('from "@/shared/utils/cn"');
+      expect(buttonCode).not.toContain('from "@/lib/utils"');
+    });
+
+    it('falls back to components.json aliases.ui when paths.ui is not in lumen.config.json', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            aliases: {
+              ui: '@/components/ui',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const configModule = await import('../../../src/config/index.js');
+      vi.spyOn(configModule, 'readConfig').mockReturnValue({
+        manifest: fixture.manifest,
+        paths: {
+          features: 'src/features',
+          components: 'src/components',
+          services: 'src/services',
+          hooks: 'src/hooks',
+          pages: 'src/pages',
+          // Note: ui omitted
+        },
+        root: tmpDir,
+        file: path.join(tmpDir, 'lumen.config.json'),
+      });
+
+      const result = await executeGenerateUi('button', { cwd: tmpDir });
+      expect(result.success).toBe(true);
+      expect(result.targetDir).toBe('src/components/ui');
+      expect(fs.existsSync(path.join(tmpDir, 'src/components/ui/Button.tsx'))).toBe(true);
+    });
+
+    it('prepends "use client" directive when rsc: true in components.json', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            rsc: true,
+          },
+          null,
+          2
+        )
+      );
+
+      const result = await executeGenerateUi('button', { cwd: tmpDir });
+      expect(result.success).toBe(true);
+
+      const buttonPath = path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx');
+      const buttonCode = fs.readFileSync(buttonPath, 'utf8');
+      expect(buttonCode.startsWith("'use client';\n\n")).toBe(true);
+    });
+
+    it('shows registry source in --list output and includes registries in json', async () => {
+      const customUrl = 'https://custom-registry.strophix.dev/r';
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            registries: {
+              '@lumen': customUrl,
+              '@acme': 'https://acme.org/r',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const res = await executeGenerateUi(undefined, {
+        cwd: tmpDir,
+        list: true,
+        json: true,
+      });
+
+      expect(res.registry).toBe(customUrl);
+      expect(res.registries).toEqual({
+        '@lumen': customUrl,
+        '@acme': 'https://acme.org/r',
+      });
+
+      // Human output
+      stdoutOutput = '';
+      await executeGenerateUi(undefined, { cwd: tmpDir, list: true });
+      expect(stdoutOutput).toContain('(from components.json)');
+      expect(stdoutOutput).toContain(customUrl);
     });
   });
 });
