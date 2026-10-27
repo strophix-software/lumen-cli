@@ -1,0 +1,80 @@
+[
+  {
+    "id": "autumn-maple",
+    "name": "Autumn Maple",
+    "description": "Warm, cozy, organic personality",
+    "fonts": ["Fraunces", "DM Sans"]
+  },
+  {
+    "id": "berry-blend",
+    "name": "Berry Blend",
+    "description": "Rich, vibrant, feminine personality",
+    "fonts": ["Playfair Display", "DM Sans"]
+  },
+  {
+    "id": "calm-lake",
+    "name": "Calm Lake",
+    "description": "Serene, peaceful, aquatic personality",
+    "fonts": ["Outfit", "Inter"]
+  },
+  {
+    "id": "desert-sands",
+    "name": "Desert Sands",
+    "description": "Earthy, warm, grounded personality",
+    "fonts": ["Libre Baskerville", "DM Sans"]
+  },
+  {
+    "id": "forest-mist",
+    "name": "Forest Mist",
+    "description": "Natural, lush, organic personality",
+    "fonts": ["Bitter", "Source Sans 3"]
+  },
+  {
+    "id": "minimal-gray",
+    "name": "Minimal Gray",
+    "description": "Clean, precise, minimal personality",
+    "fonts": ["Space Grotesk", "Inter"]
+  },
+  {
+    "id": "neon-noir",
+    "name": "Neon Noir",
+    "description": "Cyber, tech, bold personality",
+    "fonts": ["JetBrains Mono", "Inter"]
+  },
+  {
+    "id": "ocean-breeze",
+    "name": "Ocean Breeze",
+    "description": "Fresh, aquatic, clean personality",
+    "fonts": ["Nunito", "Inter"]
+  },
+  {
+    "id": "pastel-dream",
+    "name": "Pastel Dream",
+    "description": "Soft, whimsical, gentle personality",
+    "fonts": ["Quicksand", "Nunito"]
+  },
+  {
+    "id": "pebble-beach",
+    "name": "Pebble Beach",
+    "description": "Neutral, coastal, understated personality",
+    "fonts": ["Figtree", "Inter"]
+  },
+  {
+    "id": "professional",
+    "name": "Professional",
+    "description": "Corporate, trustworthy, efficient personality",
+    "fonts": ["Plus Jakarta Sans", "Inter"]
+  },
+  {
+    "id": "retro-vibes",
+    "name": "Retro Vibes",
+    "description": "Vintage, nostalgic, warm personality",
+    "fonts": ["Crimson Pro", "DM Sans"]
+  },
+  {
+    "id": "sunset-glow",
+    "name": "Sunset Glow",
+    "description": "Vibrant, energetic, warm personality",
+    "fonts": ["Sora", "Inter"]
+  }
+]

@@ -1,0 +1,148 @@
+/* Minimal Gray — shadcn preset
+ * Clean, precise, minimal personality.
+ * Source tokens: minimal-gray.css
+ * Fonts: Space Grotesk (geometric mono) + Inter (crisp body)
+ */
+
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/inter';
+
+/* ── Light ─────────────────────────────────────────── */
+[data-theme="minimal-gray"] {
+  --background: #F7F7F8;
+  --foreground: #111213;
+
+  --card: #FFFFFF;
+  --card-foreground: #111213;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #111213;
+
+  --primary: #264653;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #2A9D8F;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #EFEFEF;
+  --muted-foreground: #5F6371;
+
+  --accent: #264653;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #D64545;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #F1F4F6;
+  --input: #F1F4F6;
+  --ring: #264653;
+
+  --chart-1: #264653;
+  --chart-2: #2A9D8F;
+  --chart-3: #E9C46A;
+  --chart-4: #D64545;
+  --chart-5: #1976D2;
+
+  --radius: 0.5rem;
+
+  --sidebar: #EFEFEF;
+  --sidebar-foreground: #111213;
+  --sidebar-primary: #264653;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F4F6;
+  --sidebar-accent-foreground: #111213;
+  --sidebar-border: #F1F4F6;
+  --sidebar-ring: #264653;
+}
+
+/* ── Dark ──────────────────────────────────────────── */
+[data-theme="minimal-gray"].dark {
+  --background: #0B0D0F;
+  --foreground: #F2F6F8;
+
+  --card: #111315;
+  --card-foreground: #F2F6F8;
+
+  --popover: #111315;
+  --popover-foreground: #F2F6F8;
+
+  --primary: #6EA8FF;
+  --primary-foreground: #0B0D0F;
+
+  --secondary: #4FD1B6;
+  --secondary-foreground: #0B0D0F;
+
+  --muted: #0F1113;
+  --muted-foreground: #A7B0BB;
+
+  --accent: #6EA8FF;
+  --accent-foreground: #0B0D0F;
+
+  --destructive: #F87171;
+  --destructive-foreground: #0B0D0F;
+
+  --border: #15181B;
+  --input: #15181B;
+  --ring: #6EA8FF;
+
+  --chart-1: #6EA8FF;
+  --chart-2: #4FD1B6;
+  --chart-3: #F4D35E;
+  --chart-4: #F87171;
+  --chart-5: #60A5FA;
+
+  --sidebar: #111315;
+  --sidebar-foreground: #F2F6F8;
+  --sidebar-primary: #6EA8FF;
+  --sidebar-primary-foreground: #0B0D0F;
+  --sidebar-accent: #0F1113;
+  --sidebar-accent-foreground: #F2F6F8;
+  --sidebar-border: #15181B;
+  --sidebar-ring: #6EA8FF;
+}
+
+/* ── Tailwind v4 theme bridge ──────────────────────── */
+@theme inline {
+  --font-sans: 'Inter Variable', sans-serif;
+  --font-heading: 'Space Grotesk Variable', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}

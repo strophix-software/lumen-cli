@@ -1,0 +1,148 @@
+/* Desert Sands — shadcn preset
+ * Earthy, warm, grounded personality.
+ * Source tokens: desert-sands.css
+ * Fonts: Libre Baskerville (classic serif) + DM Sans (clean body)
+ */
+
+@import '@fontsource-variable/libre-baskerville';
+@import '@fontsource-variable/dm-sans';
+
+/* ── Light ─────────────────────────────────────────── */
+[data-theme="desert-sands"] {
+  --background: #FBF9F6;
+  --foreground: #2F261F;
+
+  --card: #FFFFFF;
+  --card-foreground: #2F261F;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #2F261F;
+
+  --primary: #D87E22;
+  --primary-foreground: #FBF9F6;
+
+  --secondary: #EADCC8;
+  --secondary-foreground: #2F261F;
+
+  --muted: #F6F1EC;
+  --muted-foreground: #8F755F;
+
+  --accent: #D87E22;
+  --accent-foreground: #FBF9F6;
+
+  --destructive: #C24F3A;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #F3E9DF;
+  --input: #F3E9DF;
+  --ring: #D87E22;
+
+  --chart-1: #D87E22;
+  --chart-2: #EADCC8;
+  --chart-3: #8AA7A5;
+  --chart-4: #C24F3A;
+  --chart-5: #D9A15A;
+
+  --radius: 1rem;
+
+  --sidebar: #F6F1EC;
+  --sidebar-foreground: #2F261F;
+  --sidebar-primary: #D87E22;
+  --sidebar-primary-foreground: #FBF9F6;
+  --sidebar-accent: #F3E9DF;
+  --sidebar-accent-foreground: #2F261F;
+  --sidebar-border: #F3E9DF;
+  --sidebar-ring: #D87E22;
+}
+
+/* ── Dark ──────────────────────────────────────────── */
+[data-theme="desert-sands"].dark {
+  --background: #2F261F;
+  --foreground: #FBF7F0;
+
+  --card: #C69C6D;
+  --card-foreground: #2F261F;
+
+  --popover: #C69C6D;
+  --popover-foreground: #2F261F;
+
+  --primary: #D87E22;
+  --primary-foreground: #FBF7F0;
+
+  --secondary: #6E4E34;
+  --secondary-foreground: #FBF7F0;
+
+  --muted: #6E4E34;
+  --muted-foreground: #A88974;
+
+  --accent: #D87E22;
+  --accent-foreground: #FBF7F0;
+
+  --destructive: #C24F3A;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #5C432F;
+  --input: #5C432F;
+  --ring: #D87E22;
+
+  --chart-1: #D87E22;
+  --chart-2: #EADCC8;
+  --chart-3: #8AA7A5;
+  --chart-4: #C24F3A;
+  --chart-5: #D9A15A;
+
+  --sidebar: #C69C6D;
+  --sidebar-foreground: #2F261F;
+  --sidebar-primary: #D87E22;
+  --sidebar-primary-foreground: #FBF7F0;
+  --sidebar-accent: #6E4E34;
+  --sidebar-accent-foreground: #FBF7F0;
+  --sidebar-border: #5C432F;
+  --sidebar-ring: #D87E22;
+}
+
+/* ── Tailwind v4 theme bridge ──────────────────────── */
+@theme inline {
+  --font-sans: 'DM Sans Variable', sans-serif;
+  --font-heading: 'Libre Baskerville Variable', serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}

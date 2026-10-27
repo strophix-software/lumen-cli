@@ -1,0 +1,148 @@
+/* Ocean Breeze — shadcn preset
+ * Fresh, aquatic, clean personality.
+ * Source tokens: ocean-breeze.css
+ * Fonts: Nunito (rounded friendly) + Inter (crisp body)
+ */
+
+@import '@fontsource-variable/nunito';
+@import '@fontsource-variable/inter';
+
+/* ── Light ─────────────────────────────────────────── */
+[data-theme="ocean-breeze"] {
+  --background: #EAF4F7;
+  --foreground: #072033;
+
+  --card: #FFFFFF;
+  --card-foreground: #072033;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #072033;
+
+  --primary: #007FA3;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #00A9CE;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #DFF0F6;
+  --muted-foreground: #4C6B78;
+
+  --accent: #007FA3;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #D9483A;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E1F0F6;
+  --input: #E1F0F6;
+  --ring: #007FA3;
+
+  --chart-1: #007FA3;
+  --chart-2: #00A9CE;
+  --chart-3: #67C8B8;
+  --chart-4: #D9483A;
+  --chart-5: #D39E45;
+
+  --radius: 0.875rem;
+
+  --sidebar: #DFF0F6;
+  --sidebar-foreground: #072033;
+  --sidebar-primary: #007FA3;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E1F0F6;
+  --sidebar-accent-foreground: #072033;
+  --sidebar-border: #E1F0F6;
+  --sidebar-ring: #007FA3;
+}
+
+/* ── Dark ──────────────────────────────────────────── */
+[data-theme="ocean-breeze"].dark {
+  --background: #052B49;
+  --foreground: #EDF6F9;
+
+  --card: #146C86;
+  --card-foreground: #EDF6F9;
+
+  --popover: #146C86;
+  --popover-foreground: #EDF6F9;
+
+  --primary: #007FA3;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #00A9CE;
+  --secondary-foreground: #052B49;
+
+  --muted: #0E4C66;
+  --muted-foreground: #A7C6D4;
+
+  --accent: #007FA3;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #D9483A;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #0D3A54;
+  --input: #0D3A54;
+  --ring: #007FA3;
+
+  --chart-1: #007FA3;
+  --chart-2: #00A9CE;
+  --chart-3: #67C8B8;
+  --chart-4: #D9483A;
+  --chart-5: #D39E45;
+
+  --sidebar: #146C86;
+  --sidebar-foreground: #EDF6F9;
+  --sidebar-primary: #007FA3;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #0E4C66;
+  --sidebar-accent-foreground: #EDF6F9;
+  --sidebar-border: #0D3A54;
+  --sidebar-ring: #007FA3;
+}
+
+/* ── Tailwind v4 theme bridge ──────────────────────── */
+@theme inline {
+  --font-sans: 'Inter Variable', sans-serif;
+  --font-heading: 'Nunito Variable', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}

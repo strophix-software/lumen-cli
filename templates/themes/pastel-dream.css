@@ -1,0 +1,148 @@
+/* Pastel Dream — shadcn preset
+ * Soft, whimsical, gentle personality.
+ * Source tokens: pastel-dream.css
+ * Fonts: Quicksand (rounded whimsical) + Nunito (soft body)
+ */
+
+@import '@fontsource-variable/quicksand';
+@import '@fontsource-variable/nunito';
+
+/* ── Light ─────────────────────────────────────────── */
+[data-theme="pastel-dream"] {
+  --background: #FBF9FD;
+  --foreground: #222029;
+
+  --card: #FFFFFF;
+  --card-foreground: #222029;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #222029;
+
+  --primary: #8F6FBF;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #6FA8A1;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #F3F1F8;
+  --muted-foreground: #7E7990;
+
+  --accent: #8F6FBF;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #C65E78;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #EFEAF6;
+  --input: #EFEAF6;
+  --ring: #8F6FBF;
+
+  --chart-1: #8F6FBF;
+  --chart-2: #6FA8A1;
+  --chart-3: #D9B66A;
+  --chart-4: #C65E78;
+  --chart-5: #BDA7D9;
+
+  --radius: 1.25rem;
+
+  --sidebar: #F3F1F8;
+  --sidebar-foreground: #222029;
+  --sidebar-primary: #8F6FBF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EFEAF6;
+  --sidebar-accent-foreground: #222029;
+  --sidebar-border: #EFEAF6;
+  --sidebar-ring: #8F6FBF;
+}
+
+/* ── Dark ──────────────────────────────────────────── */
+[data-theme="pastel-dream"].dark {
+  --background: #F5F5FA;
+  --foreground: #222029;
+
+  --card: #BDA7D9;
+  --card-foreground: #222029;
+
+  --popover: #BDA7D9;
+  --popover-foreground: #222029;
+
+  --primary: #8F6FBF;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #6FA8A1;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #ECEAF6;
+  --muted-foreground: #7E7990;
+
+  --accent: #8F6FBF;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #C65E78;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #CFC6E1;
+  --input: #CFC6E1;
+  --ring: #8F6FBF;
+
+  --chart-1: #8F6FBF;
+  --chart-2: #6FA8A1;
+  --chart-3: #D9B66A;
+  --chart-4: #C65E78;
+  --chart-5: #BDA7D9;
+
+  --sidebar: #BDA7D9;
+  --sidebar-foreground: #222029;
+  --sidebar-primary: #8F6FBF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #ECEAF6;
+  --sidebar-accent-foreground: #222029;
+  --sidebar-border: #CFC6E1;
+  --sidebar-ring: #8F6FBF;
+}
+
+/* ── Tailwind v4 theme bridge ──────────────────────── */
+@theme inline {
+  --font-sans: 'Nunito Variable', sans-serif;
+  --font-heading: 'Quicksand Variable', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
