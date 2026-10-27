@@ -3185,13 +3185,28 @@ export async function executeGenerateUi(name, options = {}) {
 
       content = applyRscDirective(content, rscEnabled);
 
-      const exists = fs.existsSync(destFullPath);
+      // Check for case-insensitive / kebab-case existing variant (e.g. button.tsx vs Button.tsx)
+      let actualDestFullPath = destFullPath;
+      let actualDestRelPath = destRelPath;
+      if (!fs.existsSync(destFullPath)) {
+        const ext = path.extname(baseFileName);
+        const nameWithoutExt = path.basename(baseFileName, ext);
+        const kebabBase = toKebab(nameWithoutExt) + ext;
+        const kebabRel = path.posix.join(targetUiDir, kebabBase);
+        const kebabFull = path.resolve(root, kebabRel);
+        if (fs.existsSync(kebabFull)) {
+          actualDestFullPath = kebabFull;
+          actualDestRelPath = kebabRel;
+        }
+      }
+
+      const exists = fs.existsSync(actualDestFullPath);
       const action = exists ? (options.force ? 'overwrite' : 'skip') : 'create';
 
-      if (!plan.some((p) => p.path === destFullPath)) {
+      if (!plan.some((p) => p.path === actualDestFullPath)) {
         plan.push({
-          path: destFullPath,
-          relPath: destRelPath,
+          path: actualDestFullPath,
+          relPath: actualDestRelPath,
           contents: content,
           action,
         });
@@ -3207,8 +3222,14 @@ export async function executeGenerateUi(name, options = {}) {
   let existingIndex = fs.existsSync(indexFullPath) ? fs.readFileSync(indexFullPath, 'utf8') : '';
   let updatedIndex = existingIndex;
   for (const pName of processedExportNames) {
+    const pNameKebab = toKebab(pName);
     const exportLine = `export * from './${pName}';`;
-    if (!updatedIndex.includes(`./${pName}`)) {
+    const alreadyExported =
+      updatedIndex.includes(`./${pName}'`) ||
+      updatedIndex.includes(`./${pName}"`) ||
+      updatedIndex.includes(`./${pNameKebab}'`) ||
+      updatedIndex.includes(`./${pNameKebab}"`);
+    if (!alreadyExported) {
       if (updatedIndex && !updatedIndex.endsWith('\n')) {
         updatedIndex += '\n';
       }
