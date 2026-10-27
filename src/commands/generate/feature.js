@@ -67,7 +67,7 @@ Examples:
       const preset = manifest?.architecture?.preset;
       if (preset === 'none') {
         throw new LumenError(
-          'Cannot generate feature: the project architecture preset is "none". Features require a structured architecture (feature-based, hybrid, or type-based fallback).',
+          'Cannot generate feature: the project architecture preset is "none". Features require a structured architecture (feature-based or type-based fallback).',
           {
             code: EXIT.USER,
             hint: 'Change architecture.preset in lumen.config.json or configure paths.features manually.',

@@ -117,6 +117,8 @@ describe('lumen g feature command', () => {
     } catch (err) {
       expect(err.code).toBe(EXIT.USER);
       expect(err.message).toContain('architecture preset is "none"');
+      expect(err.message).toContain('feature-based or type-based fallback');
+      expect(err.message).not.toContain('hybrid');
     }
   });
 

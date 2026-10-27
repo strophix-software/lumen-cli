@@ -114,7 +114,7 @@ export function findThemesCssPath(root, manifest = {}) {
   }
 
   const arch = manifest?.architecture?.preset || manifest?.architecture?.type;
-  if (arch === 'feature-based' || arch === 'hybrid' || fs.existsSync(path.resolve(root, 'src/shared'))) {
+  if (arch === 'feature-based' || fs.existsSync(path.resolve(root, 'src/shared'))) {
     return path.resolve(root, 'src', 'shared', 'styles', 'themes.css');
   }
 
