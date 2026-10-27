@@ -3214,12 +3214,43 @@ export async function executeGenerateUi(name, options = {}) {
     }
   }
 
-  // Ensure index barrel exports in paths.ui for all generated components
-  const indexRelPath = path.posix.join(targetUiDir, `index.${utilExt}`);
-  const indexFullPath = path.resolve(root, indexRelPath);
+  // Ensure cn helper utility
+  const cnPlan = ensureCnUtil(root, isTs, {
+    force: options.force,
+    componentsConfig,
+    utilsAlias,
+  });
+  if (cnPlan) {
+    assertPathContained(root, cnPlan.path);
+    plan.push(cnPlan);
+  }
+
+  // 6. Apply plan
+  const result = applyPlan(plan, {
+    dryRun: Boolean(options.dryRun),
+    force: Boolean(options.force),
+  });
+
+  // Ensure index barrel exports in paths.ui for all generated components without requiring --force (#96)
+  const candidatePrimaryRel = path.posix.join(targetUiDir, `index.${utilExt}`);
+  const candidateAltRel = path.posix.join(targetUiDir, `index.${isTs ? 'js' : 'ts'}`);
+  const candidatePrimaryFull = path.resolve(root, candidatePrimaryRel);
+  const candidateAltFull = path.resolve(root, candidateAltRel);
+
+  let indexRelPath = candidatePrimaryRel;
+  let indexFullPath = candidatePrimaryFull;
+
+  if (fs.existsSync(candidatePrimaryFull)) {
+    indexRelPath = candidatePrimaryRel;
+    indexFullPath = candidatePrimaryFull;
+  } else if (fs.existsSync(candidateAltFull)) {
+    indexRelPath = candidateAltRel;
+    indexFullPath = candidateAltFull;
+  }
   assertPathContained(root, indexFullPath);
 
-  let existingIndex = fs.existsSync(indexFullPath) ? fs.readFileSync(indexFullPath, 'utf8') : '';
+  const fileExisted = fs.existsSync(indexFullPath);
+  const existingIndex = fileExisted ? fs.readFileSync(indexFullPath, 'utf8') : '';
   let updatedIndex = existingIndex;
   for (const pName of processedExportNames) {
     const pNameKebab = toKebab(pName);
@@ -3238,30 +3269,25 @@ export async function executeGenerateUi(name, options = {}) {
   }
 
   if (updatedIndex !== existingIndex) {
-    plan.push({
+    const action = fileExisted ? 'overwrite' : 'create';
+    if (!options.dryRun) {
+      fs.mkdirSync(path.dirname(indexFullPath), { recursive: true });
+      fs.writeFileSync(indexFullPath, updatedIndex, 'utf8');
+    }
+
+    if (action === 'create') {
+      result.created.push(indexRelPath);
+    } else {
+      result.overwritten.push(indexRelPath);
+    }
+
+    result.plan.push({
       path: indexFullPath,
       relPath: indexRelPath,
       contents: updatedIndex,
-      action: existingIndex ? 'overwrite' : 'create',
+      action,
     });
   }
-
-  // Ensure cn helper utility
-  const cnPlan = ensureCnUtil(root, isTs, {
-    force: options.force,
-    componentsConfig,
-    utilsAlias,
-  });
-  if (cnPlan) {
-    assertPathContained(root, cnPlan.path);
-    plan.push(cnPlan);
-  }
-
-  // 6. Apply plan
-  const result = applyPlan(plan, {
-    dryRun: Boolean(options.dryRun),
-    force: Boolean(options.force),
-  });
 
   // 7. Handle dependencies in package.json
   const rawDeps = Array.from(new Set(allComponents.flatMap((c) => c.dependencies || [])));
