@@ -1727,6 +1727,211 @@ export function Skeleton({
 };
 
 /**
+ * Walk up directory tree to locate components.json.
+ * @param {string} [startDir=process.cwd()]
+ * @returns {string | null} Absolute path to components.json or null
+ */
+export function findComponentsJson(startDir = process.cwd()) {
+  let currentDir = path.resolve(startDir);
+
+  while (true) {
+    const candidate = path.join(currentDir, 'components.json');
+    if (fs.existsSync(candidate)) {
+      try {
+        const stat = fs.statSync(candidate);
+        if (stat.isFile()) {
+          return candidate;
+        }
+      } catch {
+        // Continue searching if unreadable
+      }
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  return null;
+}
+
+/**
+ * Read and parse components.json from given directory or ancestor.
+ * @param {string} [root=process.cwd()]
+ * @returns {object | null} Parsed components.json object or null
+ */
+export function readComponentsJson(root = process.cwd()) {
+  const directPath = path.join(root, 'components.json');
+  if (fs.existsSync(directPath)) {
+    try {
+      const raw = fs.readFileSync(directPath, 'utf8');
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  const file = findComponentsJson(root);
+  if (!file) return null;
+
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse component identifier which may contain a registry scope.
+ * Examples:
+ *   "@lumen/button" -> { scope: "@lumen", name: "button", raw: "@lumen/button" }
+ *   "@shadcn/dialog" -> { scope: "@shadcn", name: "dialog", raw: "@shadcn/dialog" }
+ *   "@acme/hero" -> { scope: "@acme", name: "hero", raw: "@acme/hero" }
+ *   "button" -> { scope: null, name: "button", raw: "button" }
+ *
+ * @param {string} rawInput
+ * @returns {{ scope: string | null, name: string, raw: string }}
+ */
+export function parseComponentIdentifier(rawInput) {
+  const trimmed = String(rawInput || '').trim();
+  if (trimmed.startsWith('@')) {
+    const slashIdx = trimmed.indexOf('/');
+    if (slashIdx !== -1) {
+      const scope = trimmed.slice(0, slashIdx);
+      const compName = trimmed.slice(slashIdx + 1);
+
+      if (!/^@[a-zA-Z0-9_-]+$/.test(scope)) {
+        throw new LumenError(`Invalid registry scope "${scope}".`, {
+          code: EXIT.USER,
+          hint: 'Registry scopes must be formatted as @<name>, e.g. "@lumen/button" or "@shadcn/dialog".',
+        });
+      }
+
+      return { scope, name: compName, raw: trimmed };
+    }
+  }
+  return { scope: null, name: trimmed, raw: trimmed };
+}
+
+/**
+ * Resolve an import alias like "@/components/ui" or "~/components/ui" into a relative directory.
+ * @param {string} alias
+ * @param {string} [root=process.cwd()]
+ * @returns {string} Relative path within project
+ */
+export function resolveAliasToPath(alias, root = process.cwd()) {
+  if (!alias || typeof alias !== 'string') return '';
+  const trimmed = alias.trim();
+  if (trimmed.startsWith('@/') || trimmed.startsWith('~/')) {
+    const withoutPrefix = trimmed.slice(2);
+    const hasSrc = fs.existsSync(path.join(root, 'src'));
+    return hasSrc ? path.posix.join('src', withoutPrefix) : withoutPrefix;
+  }
+  return trimmed.replace(/^(\.\/|\/)/, '');
+}
+
+/**
+ * Rewrites utils import alias (e.g. from "@/lib/utils" to "@/shared/utils/cn").
+ * @param {string} code
+ * @param {string} [targetAlias]
+ * @returns {string}
+ */
+export function rewriteUtilsImport(code, targetAlias) {
+  if (!code || typeof code !== 'string') return code;
+  if (!targetAlias || targetAlias === '@/lib/utils') return code;
+  return code.replace(/(['"])@\/lib\/utils(?:\.js)?\1/g, `$1${targetAlias}$1`);
+}
+
+/**
+ * Manages RSC client directive ("use client") for interactive components.
+ * @param {string} code Component code
+ * @param {boolean} rscEnabled Whether RSC is active in project
+ * @returns {string}
+ */
+export function applyRscDirective(code, rscEnabled) {
+  if (!code || typeof code !== 'string') return code;
+  const hasUseClient = /^(['"])use client\1;?\s*\n*/.test(code.trimStart());
+
+  if (rscEnabled) {
+    if (!hasUseClient) {
+      const isClient =
+        /use(State|Effect|Ref|Callback|Memo|Reducer|Transition|Id|Context|SyncExternalStore)/.test(code) ||
+        code.includes('@radix-ui') ||
+        code.includes('createContext') ||
+        code.includes('ButtonHTMLAttributes') ||
+        code.includes('InputHTMLAttributes') ||
+        code.includes('TextareaHTMLAttributes') ||
+        /on[A-Z][a-zA-Z]+/.test(code) ||
+        /<(button|input|textarea|select)\b/i.test(code);
+      if (isClient) {
+        return `'use client';\n\n${code}`;
+      }
+    }
+  } else if (rscEnabled === false) {
+    if (hasUseClient) {
+      return code.replace(/^\s*(['"])use client\1;?\s*\n*/, '');
+    }
+  }
+  return code;
+}
+
+/**
+ * Fetch a component JSON definition from a given base registry URL.
+ * Supports /r/[name].json, /styles/[style]/[name].json, and direct [cleanBase]/[name].json.
+ *
+ * @param {string} registryBaseUrl Base URL of the registry
+ * @param {string} name Normalized component name
+ * @param {object} [options={}] Options including style, fetch function, timeout
+ * @returns {Promise<object | null>}
+ */
+export async function fetchFromRegistryUrl(registryBaseUrl, name, options = {}) {
+  const fetchFn = options.fetch || globalThis.fetch;
+  if (!fetchFn || !registryBaseUrl) return null;
+
+  const style = options.style || options.componentsConfig?.style || 'new-york';
+  const cleanBase = registryBaseUrl.replace(/\/+$/, '');
+
+  const urlsToTry = cleanBase.endsWith('/r')
+    ? [
+        `${cleanBase}/${name}.json`,
+        `${cleanBase}/styles/${style}/${name}.json`,
+      ]
+    : [
+        `${cleanBase}/r/${name}.json`,
+        `${cleanBase}/r/styles/${style}/${name}.json`,
+        `${cleanBase}/${name}.json`,
+      ];
+
+  for (const url of urlsToTry) {
+    try {
+      const timeout = options.timeout || 3000;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+
+      const res = await fetchFn(url, { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (res && (res.status === 200 || res.ok)) {
+        const data = await res.json();
+        if (data && (data.files || data.name)) {
+          return {
+            ...data,
+            name: data.name || name,
+          };
+        }
+      }
+    } catch {
+      // Fall through to next URL candidate
+    }
+  }
+
+  return null;
+}
+
+/**
  * Fetch a component from the Lumen Registry (registry.lumen.dev).
  * @param {string} name Normalized component name
  * @param {object} [options={}]
@@ -1734,49 +1939,23 @@ export function Skeleton({
  */
 export async function fetchLumenRegistry(name, options = {}) {
   const hasCustomFetch = Boolean(options.fetch);
-  const hasCustomUrl = Boolean(options.lumenRegistryUrl || process.env.LUMEN_REGISTRY_URL);
+  const componentsConfig = options.componentsConfig || readComponentsJson(options.cwd || process.cwd());
+  const customRegistryUrl =
+    options.lumenRegistryUrl ||
+    process.env.LUMEN_REGISTRY_URL ||
+    componentsConfig?.registries?.['@lumen'] ||
+    componentsConfig?.registries?.lumen;
+  const hasCustomUrl = Boolean(customRegistryUrl);
 
   // If a mock or custom fetch/URL is provided, prioritize querying remote
   if (hasCustomFetch || hasCustomUrl) {
-    const baseUrl = options.lumenRegistryUrl || process.env.LUMEN_REGISTRY_URL || DEFAULT_LUMEN_REGISTRY_URL;
-    const fetchFn = options.fetch || globalThis.fetch;
-
-    if (fetchFn) {
-      const cleanBase = baseUrl.replace(/\/+$/, '');
-      const urlsToTry = cleanBase.endsWith('/r')
-        ? [
-            `${cleanBase}/${name}.json`,
-            `${cleanBase}/styles/new-york/${name}.json`,
-          ]
-        : [
-            `${cleanBase}/r/${name}.json`,
-            `${cleanBase}/r/styles/new-york/${name}.json`,
-            `${cleanBase}/components/${name}.json`,
-          ];
-
-      for (const url of urlsToTry) {
-        try {
-          const timeout = options.timeout || 3000;
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeout);
-
-          const res = await fetchFn(url, { signal: controller.signal });
-          clearTimeout(timer);
-
-          if (res.status === 200) {
-            const data = await res.json();
-            if (data && (data.files || data.name)) {
-              return {
-                source: 'lumen',
-                ...data,
-                name: data.name || name,
-              };
-            }
-          }
-        } catch {
-          // Fall through
-        }
-      }
+    const baseUrl = customRegistryUrl || DEFAULT_LUMEN_REGISTRY_URL;
+    const remote = await fetchFromRegistryUrl(baseUrl, name, { ...options, componentsConfig });
+    if (remote) {
+      return {
+        source: 'lumen',
+        ...remote,
+      };
     }
   }
 
@@ -1794,21 +1973,12 @@ export async function fetchLumenRegistry(name, options = {}) {
   // For unknown components without custom fetch, attempt fast remote query
   if (!hasCustomFetch && !hasCustomUrl && globalThis.fetch) {
     const baseUrl = DEFAULT_LUMEN_REGISTRY_URL;
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), options.timeout || 500);
-      const res = await globalThis.fetch(`${baseUrl}/r/${name}.json`, { signal: controller.signal });
-      clearTimeout(timer);
-      if (res.status === 200) {
-        const data = await res.json();
-        return {
-          source: 'lumen',
-          ...data,
-          name: data.name || name,
-        };
-      }
-    } catch {
-      // Offline or not found
+    const remote = await fetchFromRegistryUrl(baseUrl, name, { ...options, timeout: options.timeout || 500 });
+    if (remote) {
+      return {
+        source: 'lumen',
+        ...remote,
+      };
     }
   }
 
@@ -1823,42 +1993,23 @@ export async function fetchLumenRegistry(name, options = {}) {
  */
 export async function fetchShadcnRegistry(name, options = {}) {
   const hasCustomFetch = Boolean(options.fetch);
-  const hasCustomUrl = Boolean(options.shadcnRegistryUrl || process.env.SHADCN_REGISTRY_URL);
+  const componentsConfig = options.componentsConfig || readComponentsJson(options.cwd || process.cwd());
+  const customRegistryUrl =
+    options.shadcnRegistryUrl ||
+    process.env.SHADCN_REGISTRY_URL ||
+    componentsConfig?.registries?.['@shadcn'] ||
+    componentsConfig?.registries?.shadcn;
+  const hasCustomUrl = Boolean(customRegistryUrl);
 
   // If a mock or custom fetch/URL is provided, prioritize querying remote
   if (hasCustomFetch || hasCustomUrl) {
-    const baseUrl = options.shadcnRegistryUrl || process.env.SHADCN_REGISTRY_URL || DEFAULT_SHADCN_REGISTRY_URL;
-    const fetchFn = options.fetch || globalThis.fetch;
-
-    if (fetchFn) {
-      const urlsToTry = [
-        `${baseUrl.replace(/\/+$/, '')}/styles/new-york/${name}.json`,
-        `${baseUrl.replace(/\/+$/, '')}/${name}.json`,
-      ];
-
-      for (const url of urlsToTry) {
-        try {
-          const timeout = options.timeout || 3000;
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeout);
-
-          const res = await fetchFn(url, { signal: controller.signal });
-          clearTimeout(timer);
-
-          if (res.status === 200) {
-            const data = await res.json();
-            if (data && (data.files || data.name)) {
-              return {
-                source: 'shadcn',
-                ...data,
-                name: data.name || name,
-              };
-            }
-          }
-        } catch {
-          // Fall through
-        }
-      }
+    const baseUrl = customRegistryUrl || DEFAULT_SHADCN_REGISTRY_URL;
+    const remote = await fetchFromRegistryUrl(baseUrl, name, { ...options, componentsConfig });
+    if (remote) {
+      return {
+        source: 'shadcn',
+        ...remote,
+      };
     }
   }
 
@@ -1870,21 +2021,12 @@ export async function fetchShadcnRegistry(name, options = {}) {
   // For unknown components without custom fetch, attempt fast remote query
   if (!hasCustomFetch && !hasCustomUrl && globalThis.fetch) {
     const baseUrl = DEFAULT_SHADCN_REGISTRY_URL;
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), options.timeout || 500);
-      const res = await globalThis.fetch(`${baseUrl}/styles/new-york/${name}.json`, { signal: controller.signal });
-      clearTimeout(timer);
-      if (res.status === 200) {
-        const data = await res.json();
-        return {
-          source: 'shadcn',
-          ...data,
-          name: data.name || name,
-        };
-      }
-    } catch {
-      // Offline or not found
+    const remote = await fetchFromRegistryUrl(baseUrl, name, { ...options, timeout: options.timeout || 500 });
+    if (remote) {
+      return {
+        source: 'shadcn',
+        ...remote,
+      };
     }
   }
 
@@ -1895,35 +2037,121 @@ export async function fetchShadcnRegistry(name, options = {}) {
  * Resolves a UI component by name:
  * 1. Checks Lumen Registry (registry.lumen.dev)
  * 2. Falls back to Shadcn UI (ui.shadcn.com)
+ * 3. Falls back to custom registries defined in components.json
  *
- * @param {string} name Component name (kebab or pascal)
- * @param {object} [options={}] Custom URLs or fetch implementation
- * @returns {Promise<{ name: string, source: 'lumen' | 'shadcn', type: string, dependencies: string[], files: Array<{ path: string, contentTs?: string, contentJs?: string, content?: string }> }>}
+ * @param {string} name Component name (kebab, pascal, or scoped @namespace/component)
+ * @param {object} [options={}] Custom URLs, scope, fetch, or componentsConfig
+ * @returns {Promise<{ name: string, source: string, type: string, dependencies: string[], files: Array<{ path: string, contentTs?: string, contentJs?: string, content?: string }> }>}
  */
 export async function resolveUiComponent(name, options = {}) {
-  const normalized = toKebab(validateName(name));
+  const parsed = parseComponentIdentifier(name);
+  const scope = options.scope || parsed.scope;
+  const compName = parsed.scope ? parsed.name : name;
+  const normalized = toKebab(validateName(compName));
+  const root = options.cwd || process.cwd();
+  const componentsConfig = options.componentsConfig || readComponentsJson(root);
 
-  // 1. Try Lumen Registry first
-  const lumenComponent = await fetchLumenRegistry(normalized, options);
+  // Scoped request
+  if (scope) {
+    if (scope === '@lumen' || scope === 'lumen') {
+      const lumenComponent = await fetchLumenRegistry(normalized, { ...options, componentsConfig });
+      if (lumenComponent) {
+        return {
+          ...lumenComponent,
+          source: 'lumen',
+          name: normalized,
+          scope: '@lumen',
+        };
+      }
+    } else if (scope === '@shadcn' || scope === 'shadcn') {
+      const shadcnComponent = await fetchShadcnRegistry(normalized, { ...options, componentsConfig });
+      if (shadcnComponent) {
+        return {
+          ...shadcnComponent,
+          source: 'shadcn',
+          name: normalized,
+          scope: '@shadcn',
+        };
+      }
+    } else {
+      // Custom registry scope
+      const regUrl =
+        options.registryUrl ||
+        componentsConfig?.registries?.[scope] ||
+        componentsConfig?.registries?.[scope.replace(/^@/, '')] ||
+        componentsConfig?.registries?.[`@${scope.replace(/^@/, '')}`];
+
+      if (!regUrl) {
+        throw new LumenError(
+          `Registry for scope "${scope}" is not configured in components.json or options.`,
+          {
+            code: EXIT.USER,
+            hint: `Add "${scope}": "https://..." to "registries" in components.json.`,
+          }
+        );
+      }
+
+      const customComponent = await fetchFromRegistryUrl(regUrl, normalized, { ...options, componentsConfig });
+      if (customComponent) {
+        return {
+          ...customComponent,
+          source: scope,
+          name: normalized,
+          scope,
+        };
+      }
+    }
+
+    throw new LumenError(
+      `Component "${compName}" was not found in registry "${scope}".`,
+      {
+        code: EXIT.USER,
+        hint: `Check that the component exists in the registry for ${scope}.`,
+      }
+    );
+  }
+
+  // Unscoped: 1. Try Lumen Registry
+  const lumenComponent = await fetchLumenRegistry(normalized, { ...options, componentsConfig });
   if (lumenComponent) {
     return {
       ...lumenComponent,
       source: 'lumen',
       name: normalized,
+      scope: null,
     };
   }
 
-  // 2. Try Shadcn fallback
-  const shadcnComponent = await fetchShadcnRegistry(normalized, options);
+  // Unscoped: 2. Try Shadcn fallback
+  const shadcnComponent = await fetchShadcnRegistry(normalized, { ...options, componentsConfig });
   if (shadcnComponent) {
     return {
       ...shadcnComponent,
       source: 'shadcn',
       name: normalized,
+      scope: null,
     };
   }
 
-  // 3. Not found in either
+  // Unscoped: 3. Try any custom registries from components.json
+  if (componentsConfig?.registries) {
+    for (const [regScope, regUrl] of Object.entries(componentsConfig.registries)) {
+      if (['@lumen', 'lumen', '@shadcn', 'shadcn'].includes(regScope)) continue;
+      if (typeof regUrl === 'string') {
+        const customComp = await fetchFromRegistryUrl(regUrl, normalized, { ...options, componentsConfig });
+        if (customComp) {
+          return {
+            ...customComp,
+            source: regScope,
+            name: normalized,
+            scope: regScope,
+          };
+        }
+      }
+    }
+  }
+
+  // 4. Not found in either
   throw new LumenError(
     `Component "${name}" was not found in the Lumen Registry or Shadcn fallback.`,
     {
@@ -2051,19 +2279,39 @@ export function installPeerDependencies(root, missingDeps = [], { dryRun = false
  * Ensures cn utility exists in project (e.g. at src/lib/utils.ts or utils.js).
  * @param {string} root Project root directory
  * @param {boolean} isTs Whether project is TypeScript
- * @param {{ force?: boolean }} [options={}]
+ * @param {{ force?: boolean, componentsConfig?: object, utilsAlias?: string }} [options={}]
  * @returns {{ path: string, relPath: string, contents: string, action: 'create' | 'skip' | 'overwrite' } | null}
  */
 export function ensureCnUtil(root, isTs, options = {}) {
   const ext = isTs ? 'ts' : 'js';
-  const relPath = `src/lib/utils.${ext}`;
+  const componentsConfig = options.componentsConfig || readComponentsJson(root);
+  const utilsAlias = options.utilsAlias || componentsConfig?.aliases?.utils || '@/lib/utils';
+
+  let relPath;
+  if (utilsAlias === '@/lib/utils' || utilsAlias === '~/lib/utils') {
+    relPath = `src/lib/utils.${ext}`;
+  } else {
+    const resolved = resolveAliasToPath(utilsAlias, root);
+    const hasExt = /\.(ts|js|tsx|jsx)$/.test(resolved);
+    relPath = hasExt ? resolved : `${resolved}.${ext}`;
+  }
+
   const fullPath = path.join(root, relPath);
 
   // Check if utils already exists in src/lib or src/shared/utils/cn or src/utils/cn
   const alt1 = path.join(root, `src/shared/utils/cn.${ext}`);
   const alt2 = path.join(root, `src/utils/cn.${ext}`);
+  const alt3 = path.join(root, `src/lib/utils.${ext}`);
 
-  if (fs.existsSync(alt1) || fs.existsSync(alt2)) {
+  if (fs.existsSync(fullPath)) {
+    if (!options.force) {
+      return null;
+    }
+  } else if (
+    (fs.existsSync(alt1) || fs.existsSync(alt2) || fs.existsSync(alt3)) &&
+    !options.force &&
+    (utilsAlias === '@/lib/utils' || utilsAlias === '~/lib/utils')
+  ) {
     return null;
   }
 
@@ -2096,6 +2344,10 @@ export function registerUi(generate) {
     .option('-l, --list', 'List available components or theme presets')
     .option('--dry-run', 'Preview changes without writing to disk')
     .option('-f, --force', 'Overwrite existing files or theme tokens')
+    .option('--registry <url>', 'Override registry URL')
+    .option('--style <style>', 'Component style variant (e.g. new-york, default)')
+    .option('--rsc', 'Generate component with React Server Components support')
+    .option('--no-rsc', 'Disable React Server Components support')
     .addHelpText(
       'after',
       `
@@ -2108,6 +2360,8 @@ Examples:
   $ lumen g ui theme-neon-noir --dry-run
   $ lumen g ui theme-ocean-breeze --force
   $ lumen g ui button
+  $ lumen g ui @lumen/app-shell
+  $ lumen g ui @shadcn/dialog
   $ lumen g ui card
   $ lumen g ui app-shell
   $ lumen g ui data-table
@@ -2119,6 +2373,9 @@ Examples:
         ...globals,
         ...cmdOpts,
       };
+      if (options.registry) {
+        options.lumenRegistryUrl = options.registry;
+      }
       const cwd = options.cwd || process.cwd();
       const isJson = Boolean(options.json);
 
@@ -2244,6 +2501,30 @@ export async function executeGenerateUi(name, options = {}) {
   // 1. Handle --list or 'theme --list'
   if (options.list || (!name && options.list)) {
     const catalog = listUiComponents();
+    const root = options.cwd || process.cwd();
+    const componentsConfig = options.componentsConfig || readComponentsJson(root);
+
+    const lumenRegistryUrl =
+      options.lumenRegistryUrl ||
+      options.registry ||
+      process.env.LUMEN_REGISTRY_URL ||
+      componentsConfig?.registries?.['@lumen'] ||
+      componentsConfig?.registries?.lumen ||
+      DEFAULT_LUMEN_REGISTRY_URL;
+
+    const isLumenFromComponentsJson = Boolean(
+      !options.lumenRegistryUrl &&
+      !options.registry &&
+      !process.env.LUMEN_REGISTRY_URL &&
+      (componentsConfig?.registries?.['@lumen'] || componentsConfig?.registries?.lumen)
+    );
+
+    const shadcnRegistryUrl =
+      options.shadcnRegistryUrl ||
+      process.env.SHADCN_REGISTRY_URL ||
+      componentsConfig?.registries?.['@shadcn'] ||
+      componentsConfig?.registries?.shadcn ||
+      DEFAULT_SHADCN_REGISTRY_URL;
 
     if (name === 'theme') {
       if (options.json) {
@@ -2262,8 +2543,9 @@ export async function executeGenerateUi(name, options = {}) {
       const payload = {
         success: true,
         kind: 'ui-list',
-        registry: options.lumenRegistryUrl || process.env.LUMEN_REGISTRY_URL || DEFAULT_LUMEN_REGISTRY_URL,
-        fallback: options.shadcnRegistryUrl || process.env.SHADCN_REGISTRY_URL || DEFAULT_SHADCN_REGISTRY_URL,
+        registry: lumenRegistryUrl,
+        fallback: shadcnRegistryUrl,
+        registries: componentsConfig?.registries || {},
         components: [...catalog.lumen, ...catalog.shadcn],
         themes: catalog.themes,
       };
@@ -2272,8 +2554,8 @@ export async function executeGenerateUi(name, options = {}) {
     }
 
     process.stdout.write('\nLumen UI Component Registry:\n');
-    process.stdout.write(`  Registry: ${options.lumenRegistryUrl || process.env.LUMEN_REGISTRY_URL || DEFAULT_LUMEN_REGISTRY_URL}\n`);
-    process.stdout.write(`  Fallback: ${options.shadcnRegistryUrl || process.env.SHADCN_REGISTRY_URL || DEFAULT_SHADCN_REGISTRY_URL}\n\n`);
+    process.stdout.write(`  Registry: ${lumenRegistryUrl}${isLumenFromComponentsJson ? ' (from components.json)' : ''}\n`);
+    process.stdout.write(`  Fallback: ${shadcnRegistryUrl}\n\n`);
 
     process.stdout.write('Lumen Registry Components (Blocks & Primitives):\n');
     for (const item of catalog.lumen) {
@@ -2321,14 +2603,24 @@ export async function executeGenerateUi(name, options = {}) {
     return await executeApplyTheme(themeId, options);
   }
 
-  const validatedName = validateName(trimmed);
+  const { scope, name: compIdentifier } = parseComponentIdentifier(trimmed);
+  const validatedName = validateName(compIdentifier);
   const normalizedName = toKebab(validatedName);
   const pascalName = toPascal(validatedName);
+  const fullName = scope ? `${scope}/${normalizedName}` : normalizedName;
 
   // 3. Read project configuration
   const { manifest, paths, root } = readConfig({ cwd: options.cwd });
+  const componentsConfig = options.componentsConfig || readComponentsJson(root);
 
-  if (!paths.ui || typeof paths.ui !== 'string') {
+  let targetUiDir = paths.ui;
+  if (!targetUiDir && componentsConfig?.aliases?.ui) {
+    targetUiDir = resolveAliasToPath(componentsConfig.aliases.ui, root);
+  } else if (!targetUiDir && componentsConfig?.aliases?.components) {
+    targetUiDir = path.posix.join(resolveAliasToPath(componentsConfig.aliases.components, root), 'ui');
+  }
+
+  if (!targetUiDir || typeof targetUiDir !== 'string') {
     throw new LumenError('Missing "paths.ui" in manifest configuration for UI component generation.', {
       code: EXIT.USER,
       hint: 'Ensure your lumen.config.json has a valid paths.ui directory configured.',
@@ -2342,15 +2634,28 @@ export async function executeGenerateUi(name, options = {}) {
     });
   }
 
-  // 4. Resolve component (Lumen Registry -> Shadcn fallback)
-  const resolved = await resolveUiComponent(normalizedName, options);
+  // 4. Resolve component (Lumen Registry -> Shadcn fallback -> custom registries)
+  const resolved = await resolveUiComponent(normalizedName, {
+    ...options,
+    scope,
+    componentsConfig,
+  });
 
-  const isTs = (manifest.tooling?.language || 'ts') === 'ts';
+  const isTs = manifest.tooling?.language
+    ? manifest.tooling.language === 'ts'
+    : (componentsConfig?.tsx !== undefined ? Boolean(componentsConfig.tsx) : true);
   const utilExt = isTs ? 'ts' : 'js';
+
+  const rscEnabled = options.rsc !== undefined
+    ? Boolean(options.rsc)
+    : (componentsConfig?.rsc !== undefined
+        ? Boolean(componentsConfig.rsc)
+        : (manifest.framework?.name === 'next'));
+
+  const utilsAlias = options.utilsAlias || componentsConfig?.aliases?.utils;
 
   // 5. Build generation plan
   const plan = [];
-  const targetUiDir = paths.ui;
 
   // Primary component files
   for (const file of resolved.files || []) {
@@ -2377,6 +2682,12 @@ export async function executeGenerateUi(name, options = {}) {
         .replace(/<HTML[A-Za-z]+Element(?:,\s*[^>]+)?>/g, '')
         .replace(/as\s+any/g, '');
     }
+
+    if (utilsAlias && utilsAlias !== '@/lib/utils') {
+      content = rewriteUtilsImport(content, utilsAlias);
+    }
+
+    content = applyRscDirective(content, rscEnabled);
 
     const exists = fs.existsSync(destFullPath);
     const action = exists ? (options.force ? 'overwrite' : 'skip') : 'create';
@@ -2418,7 +2729,11 @@ export async function executeGenerateUi(name, options = {}) {
   }
 
   // Ensure cn helper utility
-  const cnPlan = ensureCnUtil(root, isTs, { force: options.force });
+  const cnPlan = ensureCnUtil(root, isTs, {
+    force: options.force,
+    componentsConfig,
+    utilsAlias,
+  });
   if (cnPlan) {
     assertPathContained(root, cnPlan.path);
     plan.push(cnPlan);
@@ -2462,10 +2777,12 @@ export async function executeGenerateUi(name, options = {}) {
       success: true,
       kind: 'ui',
       name: normalizedName,
+      fullName,
+      scope: scope || null,
       pascalName,
       source: resolved.source,
       type: resolved.type || 'primitive',
-      targetDir: paths.ui,
+      targetDir: targetUiDir,
       dryRun: Boolean(options.dryRun),
       force: Boolean(options.force),
       created: result.created,
@@ -2482,12 +2799,14 @@ export async function executeGenerateUi(name, options = {}) {
     const sourceLabel =
       resolved.source === 'lumen'
         ? 'Lumen Registry'
-        : 'Shadcn UI fallback';
+        : resolved.source === 'shadcn'
+        ? 'Shadcn UI fallback'
+        : `${resolved.source} registry`;
 
     if (options.dryRun) {
       process.stdout.write(`\n[DRY RUN] Plan for UI component "${pascalName}" (resolved from ${sourceLabel}):\n`);
     } else {
-      process.stdout.write(`\nResolved "${normalizedName}" from ${sourceLabel}\n`);
+      process.stdout.write(`\nResolved "${fullName}" from ${sourceLabel}\n`);
       process.stdout.write(`Generated UI component "${pascalName}":\n`);
     }
 
@@ -2525,10 +2844,12 @@ export async function executeGenerateUi(name, options = {}) {
     success: true,
     kind: 'ui',
     name: normalizedName,
+    fullName,
+    scope: scope || null,
     pascalName,
     source: resolved.source,
     type: resolved.type || 'primitive',
-    targetDir: paths.ui,
+    targetDir: targetUiDir,
     dryRun: Boolean(options.dryRun),
     force: Boolean(options.force),
     packages: finalDepStatus,
