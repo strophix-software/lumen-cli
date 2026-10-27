@@ -29,6 +29,38 @@ function buildForwardArgs(name, options) {
     args.push('--arch', arch);
   }
 
+  if (options.state) {
+    args.push('--state', options.state);
+  }
+
+  const db = options.db || options.database;
+  if (db) {
+    args.push('--db', db);
+  }
+
+  const dbProvider = options.dbProvider || options['db-provider'];
+  if (dbProvider) {
+    args.push('--db-provider', dbProvider);
+  }
+
+  if (options.docker) {
+    args.push('--docker');
+  }
+
+  const routeGroups = options.routeGroups || options['route-groups'];
+  if (routeGroups) {
+    args.push('--route-groups');
+  }
+
+  const agentDocs = options.agentDocs || options['agent-docs'];
+  if (agentDocs) {
+    args.push('--agent-docs');
+  }
+
+  if (options.testing) {
+    args.push('--testing', options.testing);
+  }
+
   return args;
 }
 
@@ -47,6 +79,13 @@ export function registerCreate(program) {
     .option('--language <language>', 'project language (ts, js)')
     .option('--styling <engine>', 'styling engine (tailwind, none)')
     .option('--ui <kit>', 'ui component kit (shadcn, none)')
+    .option('-s, --state <lib>', 'state management (zustand, redux, none)')
+    .option('--db, --database <orm>', 'database ORM (prisma, none)')
+    .option('--db-provider <provider>', 'database provider (postgresql, supabase)')
+    .option('--docker', 'include multi-stage Dockerfile & compose for Next.js')
+    .option('--route-groups', 'include Next.js route groups preset')
+    .option('--agent-docs', 'generate root AGENTS.md referencing lumen.config.json')
+    .option('--testing <framework>', 'testing framework (vitest, jest, none)')
     .addHelpText(
       'after',
       `
@@ -56,6 +95,8 @@ Examples:
   $ lumen create my-app --template react-ts
   $ lumen create my-app --template next-ts
   $ lumen create my-app --arch feature-based
+  $ lumen create my-app --state zustand
+  $ lumen create my-app -y --db prisma --db-provider supabase
   $ lumen create my-app --manifest ./lumen.config.json
   $ lumen create my-app -y --linter oxlint --formatter oxfmt`
     )
@@ -82,6 +123,13 @@ Examples:
     .option('--language <language>', 'project language (ts, js)')
     .option('--styling <engine>', 'styling engine (tailwind, none)')
     .option('--ui <kit>', 'ui component kit (shadcn, none)')
+    .option('-s, --state <lib>', 'state management (zustand, redux, none)')
+    .option('--db, --database <orm>', 'database ORM (prisma, none)')
+    .option('--db-provider <provider>', 'database provider (postgresql, supabase)')
+    .option('--docker', 'include multi-stage Dockerfile & compose for Next.js')
+    .option('--route-groups', 'include Next.js route groups preset')
+    .option('--agent-docs', 'generate root AGENTS.md referencing lumen.config.json')
+    .option('--testing <framework>', 'testing framework (vitest, jest, none)')
     .addHelpText(
       'after',
       `
@@ -91,6 +139,8 @@ Examples:
   $ lumen init --template react-ts
   $ lumen init --template next-ts
   $ lumen init --arch feature-based
+  $ lumen init --state zustand
+  $ lumen init -y --db prisma --db-provider supabase
   $ lumen init --manifest ./lumen.config.json
   $ lumen init -y --linter oxlint --formatter oxfmt`
     )

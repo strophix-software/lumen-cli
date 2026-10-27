@@ -178,8 +178,11 @@ lm create my-app
 # Fast unattended setup with recommended defaults
 lm create my-app -y
 
-# Specify template and architecture preset
-lm create my-app -t next-app-ts -a feature-based
+# Specify template, state management, and architecture preset
+lm create my-app -t next-app-ts -a feature-based -s zustand
+
+# Fullstack setup with Prisma ORM on Supabase and Route Groups
+lm create my-app -y -t next-app-ts --db prisma --db-provider supabase --route-groups
 
 # Custom linting and formatting tooling (including Biome v2 or none)
 lm create my-app -y --linter biome --formatter none
@@ -194,6 +197,13 @@ lm create my-app -y --linter biome --formatter none
 | `-t <preset>`| `--template <preset>`| Template preset (`next-app-ts`, `next-app-js`, `react-ts`, `react-js`, etc.) |
 | `-f <name>` | `--framework <name>` | Target framework (`next`, `react`) |
 | `-a <arch>` | `-a, --arch <arch>` / `--architecture` | Architecture preset (`feature-based`, `type-based`, `none`) |
+| `-s <lib>` | `-s, --state <lib>` | State management (`zustand`, `redux`, `none`) |
+| | `--db, --database <orm>` | Database ORM (`prisma`, `none`) |
+| | `--db-provider <provider>` | Database provider (`postgresql`, `supabase`) |
+| | `--docker` | Include multi-stage Dockerfile & compose for Next.js standalone |
+| | `--route-groups` | Include Next.js route groups preset `(public)`, `(auth)`, `(private)`, `(admin)` |
+| | `--agent-docs` | Generate root `AGENTS.md` referencing `lumen.config.json` |
+| | `--testing <tool>` | Testing framework (`vitest`, `jest`, `none`) |
 | | `--linter <tool>` | Linting tool (`eslint`, `oxlint`, `biome`, `none`) |
 | | `--formatter <tool>`| Formatting tool (`prettier`, `oxfmt`, `none`) |
 | | `--language <lang>` | Project language (`ts`, `js`) |

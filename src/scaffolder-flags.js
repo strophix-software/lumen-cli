@@ -7,6 +7,8 @@ import {
   STYLING_ENGINES,
   UI_KITS,
   ARCHITECTURE_PRESETS,
+  DATABASE_ORMS,
+  DATABASE_PROVIDERS,
   parseManifest,
 } from 'create-lumen/src/manifest/schema.js';
 import { buildManifest } from 'create-lumen/src/manifest/emit.js';
@@ -15,6 +17,8 @@ import { LumenError, EXIT } from './errors.js';
 
 const REACT_ARCHITECTURES = ['feature-based', 'type-based', 'none'];
 const NEXT_ARCHITECTURES = ['feature-based', 'none'];
+export const STATE_MANAGEMENT_LIBS = ['zustand', 'redux', 'none'];
+export const TESTING_FRAMEWORKS = ['vitest', 'jest', 'none'];
 
 export {
   TOOLING_LINTERS,
@@ -23,6 +27,8 @@ export {
   STYLING_ENGINES,
   UI_KITS,
   ARCHITECTURE_PRESETS,
+  DATABASE_ORMS,
+  DATABASE_PROVIDERS,
 };
 
 /**
@@ -32,8 +38,26 @@ export {
  * @param {object} options
  */
 export function validateScaffolderFlags(options = {}) {
-  const { linter, formatter, language, styling, ui, arch, architecture } = options;
+  const {
+    linter,
+    formatter,
+    language,
+    styling,
+    ui,
+    arch,
+    architecture,
+    state,
+    db,
+    database,
+    dbProvider,
+    testing,
+    docker,
+    routeGroups,
+  } = options;
   const chosenArch = arch || architecture;
+  const chosenDb = db || database;
+  const chosenDbProvider = dbProvider || options['db-provider'];
+  const chosenRouteGroups = routeGroups || options['route-groups'];
 
   if (linter !== undefined && !TOOLING_LINTERS.includes(linter)) {
     throw new LumenError(
@@ -70,6 +94,47 @@ export function validateScaffolderFlags(options = {}) {
     );
   }
 
+  if (state !== undefined) {
+    let normalizedState = typeof state === 'string' ? state.trim().toLowerCase() : '';
+    if (normalizedState === 'rtk' || normalizedState === 'reduxtoolkit') {
+      normalizedState = 'redux';
+    }
+    if (!STATE_MANAGEMENT_LIBS.includes(normalizedState)) {
+      throw new LumenError(
+        `Invalid state management "${state}". Allowed values: ${STATE_MANAGEMENT_LIBS.join(', ')}`,
+        { code: EXIT.USER }
+      );
+    }
+  }
+
+  if (chosenDb !== undefined && !DATABASE_ORMS.includes(chosenDb)) {
+    throw new LumenError(
+      `Invalid database ORM "${chosenDb}". Allowed values: ${DATABASE_ORMS.join(', ')}`,
+      { code: EXIT.USER }
+    );
+  }
+
+  if (chosenDbProvider !== undefined && !DATABASE_PROVIDERS.includes(chosenDbProvider)) {
+    throw new LumenError(
+      `Invalid database provider "${chosenDbProvider}". Allowed values: ${DATABASE_PROVIDERS.join(', ')}`,
+      { code: EXIT.USER }
+    );
+  }
+
+  if (chosenDbProvider !== undefined && (!chosenDb || chosenDb === 'none')) {
+    throw new LumenError(
+      `Database provider "${chosenDbProvider}" requires a database ORM (e.g. --db prisma)`,
+      { code: EXIT.USER }
+    );
+  }
+
+  if (testing !== undefined && !TESTING_FRAMEWORKS.includes(testing)) {
+    throw new LumenError(
+      `Invalid testing framework "${testing}". Allowed values: ${TESTING_FRAMEWORKS.join(', ')}`,
+      { code: EXIT.USER }
+    );
+  }
+
   if (chosenArch !== undefined && !ARCHITECTURE_PRESETS.includes(chosenArch)) {
     throw new LumenError(
       `Invalid architecture preset "${chosenArch}". Allowed values: ${ARCHITECTURE_PRESETS.join(', ')}`,
@@ -94,6 +159,24 @@ export function validateScaffolderFlags(options = {}) {
     }
   }
 
+  if (frameworkName === 'react') {
+    if (chosenDb !== undefined && chosenDb !== 'none') {
+      throw new LumenError('Database configuration is only supported with framework "next"', {
+        code: EXIT.USER,
+      });
+    }
+    if (docker) {
+      throw new LumenError('Docker standalone preset is only supported with framework "next"', {
+        code: EXIT.USER,
+      });
+    }
+    if (chosenRouteGroups) {
+      throw new LumenError('Route groups are only supported with framework "next"', {
+        code: EXIT.USER,
+      });
+    }
+  }
+
   if (ui === 'shadcn' && styling !== undefined && styling !== 'tailwind') {
     throw new LumenError(
       `UI kit "shadcn" requires styling "tailwind" (got "${styling}")`,
@@ -114,7 +197,16 @@ export function hasToolingFlags(options = {}) {
     options.formatter !== undefined ||
     options.language !== undefined ||
     options.styling !== undefined ||
-    options.ui !== undefined
+    options.ui !== undefined ||
+    options.db !== undefined ||
+    options.database !== undefined ||
+    options.dbProvider !== undefined ||
+    options['db-provider'] !== undefined ||
+    options.docker !== undefined ||
+    options.routeGroups !== undefined ||
+    options['route-groups'] !== undefined ||
+    options.agentDocs !== undefined ||
+    options['agent-docs'] !== undefined
   );
 }
 
@@ -209,6 +301,11 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
       },
     };
 
+    const chosenDb = options.db || options.database;
+    const chosenDbProvider = options.dbProvider || options['db-provider'];
+    const chosenRouteGroups = options.routeGroups || options['route-groups'];
+    const chosenAgentDocs = options.agentDocs || options['agent-docs'];
+
     if (chosenArch !== undefined) {
       merged.architecture = {
         ...baseManifest.architecture,
@@ -224,6 +321,25 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
       };
     }
 
+    if (chosenDb && chosenDb !== 'none') {
+      merged.database = {
+        orm: chosenDb,
+        provider: chosenDbProvider || 'postgresql',
+      };
+    }
+
+    if (options.docker !== undefined) {
+      merged.docker = Boolean(options.docker);
+    }
+
+    if (chosenRouteGroups !== undefined) {
+      merged.routeGroups = Boolean(chosenRouteGroups);
+    }
+
+    if (chosenAgentDocs !== undefined) {
+      merged.agentDocs = Boolean(chosenAgentDocs);
+    }
+
     try {
       finalManifest = parseManifest(merged);
     } catch (err) {
@@ -232,6 +348,11 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
   } else {
     // Build manifest using create-lumen's buildManifest
     const preset = template && PRESETS[template] ? PRESETS[template] : {};
+
+    const chosenDb = options.db || options.database;
+    const chosenDbProvider = options.dbProvider || options['db-provider'];
+    const chosenRouteGroups = options.routeGroups || options['route-groups'];
+    const chosenAgentDocs = options.agentDocs || options['agent-docs'];
 
     const responses = {
       architecture: chosenArch || preset.architecture || 'feature-based',
@@ -247,6 +368,13 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
               ? 'none'
               : (preset.formatter || 'prettier')),
       docsLanguage: preset.docsLanguage || 'en',
+      ...(chosenDb && chosenDb !== 'none' && {
+        database: chosenDb,
+        databaseProvider: chosenDbProvider || 'postgresql',
+      }),
+      ...(options.docker !== undefined && { docker: Boolean(options.docker) }),
+      ...(chosenRouteGroups !== undefined && { routeGroups: Boolean(chosenRouteGroups) }),
+      ...(chosenAgentDocs !== undefined && { agentDocs: Boolean(chosenAgentDocs) }),
     };
 
     let frameworkName = preset.frameworkName || 'react';
