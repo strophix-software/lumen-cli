@@ -46,7 +46,7 @@ pipeline) live in [`docs/PLAN.md`](./docs/PLAN.md).
 > **DoD:** `lumen g ui <name>` resolves from the Lumen Registry with a
 > shadcn fallback, and `lumen g ui theme-<name>` applies preset tokens.
 
-- [ ] #9 `lumen g ui <name>`: Lumen Registry + Shadcn fallback resolver
+- [x] #9 `lumen g ui <name>`: Lumen Registry + Shadcn fallback resolver
 - [x] #10 `lumen g ui theme-<name>`: preset theme tokens
 
 ## 📚 M4 · `v1.0.0-beta.2` — Docs engine

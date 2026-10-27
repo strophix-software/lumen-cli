@@ -50,10 +50,13 @@ export function getThemePreset(themeId) {
 
   if (!theme) {
     const available = themes.map((t) => t.id).join(', ');
-    throw new LumenError(`Unknown theme preset "${themeId}". Available presets: ${available}`, {
-      code: EXIT.USER,
-      hint: 'Run "lumen g ui theme --list" to view all available presets.',
-    });
+    throw new LumenError(
+      `Unknown theme preset "${themeId}". Theme "${themeId}" not found. Available presets: ${available}`,
+      {
+        code: EXIT.USER,
+        hint: 'Run "lumen g ui theme --list" to view all available presets.',
+      }
+    );
   }
 
   return theme;

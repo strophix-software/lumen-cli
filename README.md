@@ -274,6 +274,27 @@ lumen g form contact --dry-run
 - `-f, --force` — Overwrite existing files
 - `-j, --json` — Output result as JSON
 
+### `lumen generate ui [name]` (alias: `lumen g ui [name]`)
+
+Resolve and generate UI components from the Lumen Registry (`registry.lumen.dev`) with Shadcn UI fallback (`ui.shadcn.com`), written directly to `paths.ui`. Supports Tailwind v4 preset themes (`lumen g ui theme-<name>`).
+
+```bash
+lumen g ui button
+lumen g ui card
+lumen g ui data-table
+lumen g ui --list
+lumen g ui button --dry-run
+lumen g ui button --force
+lumen g ui theme-ocean-breeze
+```
+
+**Options:**
+- `-l, --list` — List available UI components from Lumen Registry, Shadcn fallback, and preset themes
+- `--dry-run` — Preview file creations without writing to disk
+- `-f, --force` — Overwrite existing files
+- `-j, --json` — Output result as structured JSON
+
+
 
 ### `lumen generate feature <name>`
 
