@@ -4,7 +4,13 @@ import path from 'node:path';
 import os from 'node:os';
 import { loadValidFixtures } from 'create-lumen/schema/fixtures/index.js';
 import { createCli } from '../../src/cli.js';
-import { executeGenerateForm, checkFormDependencies } from '../../src/commands/generate/form.js';
+import {
+  executeGenerateForm,
+  checkFormDependencies,
+  addPeerDependencies,
+  installFormDependencies,
+  REQUIRED_PACKAGE_VERSIONS,
+} from '../../src/commands/generate/form.js';
 import { LumenError, EXIT } from '../../src/errors.js';
 
 describe('lumen g form generator', () => {
@@ -367,6 +373,186 @@ describe('lumen g form generator', () => {
         { name: 'zod', installed: true },
         { name: '@hookform/resolvers', installed: true },
       ]);
+    });
+
+    it('reports added status when newlyAdded packages list is provided', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          dependencies: {
+            'react-hook-form': '^7.54.0',
+          },
+        })
+      );
+
+      const checks = checkFormDependencies(tmpDir, ['react-hook-form']);
+      expect(checks).toEqual([
+        { name: 'react-hook-form', installed: true, added: true },
+        { name: 'zod', installed: false, added: false },
+        { name: '@hookform/resolvers', installed: false, added: false },
+      ]);
+    });
+  });
+
+  describe('addPeerDependencies (#95)', () => {
+    it('writes missing form dependencies to package.json with recommended versions', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ dependencies: {} }, null, 2)
+      );
+
+      const added = addPeerDependencies(tmpDir, ['react-hook-form', 'zod', '@hookform/resolvers']);
+      expect(added).toEqual(['react-hook-form', 'zod', '@hookform/resolvers']);
+
+      const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8'));
+      expect(pkg.dependencies['react-hook-form']).toBe('^7.54.0');
+      expect(pkg.dependencies.zod).toBe('^3.24.0');
+      expect(pkg.dependencies['@hookform/resolvers']).toBe('^3.10.0');
+      expect(REQUIRED_PACKAGE_VERSIONS['react-hook-form']).toBe('^7.54.0');
+      expect(installFormDependencies).toBe(addPeerDependencies);
+    });
+
+    it('does not overwrite existing dependencies or devDependencies', () => {
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({
+          dependencies: {
+            zod: '^3.20.0',
+          },
+          devDependencies: {
+            '@hookform/resolvers': '^3.5.0',
+          },
+        }, null, 2)
+      );
+
+      const added = addPeerDependencies(tmpDir, ['react-hook-form', 'zod', '@hookform/resolvers']);
+      expect(added).toEqual(['react-hook-form']);
+
+      const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8'));
+      expect(pkg.dependencies.zod).toBe('^3.20.0');
+      expect(pkg.devDependencies['@hookform/resolvers']).toBe('^3.5.0');
+      expect(pkg.dependencies['react-hook-form']).toBe('^7.54.0');
+    });
+
+    it('returns empty array and does not modify disk when dryRun is true', () => {
+      const initialContent = JSON.stringify({ dependencies: {} }, null, 2);
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), initialContent);
+
+      const added = addPeerDependencies(tmpDir, ['react-hook-form', 'zod'], { dryRun: true });
+      expect(added).toEqual([]);
+
+      const afterContent = fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8');
+      expect(afterContent).toBe(initialContent);
+    });
+
+    it('returns empty array if package.json does not exist', () => {
+      const added = addPeerDependencies(tmpDir, ['react-hook-form']);
+      expect(added).toEqual([]);
+    });
+  });
+
+  describe('Form dependencies auto-injection in executeGenerateForm (#95)', () => {
+    it('injects missing form dependencies into package.json when generating a form', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'my-app', dependencies: { react: '^19.0.0' } }, null, 2)
+      );
+
+      const result = await executeGenerateForm('sign-up', { cwd: tmpDir });
+
+      const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8'));
+      expect(pkg.dependencies['react-hook-form']).toBe('^7.54.0');
+      expect(pkg.dependencies.zod).toBe('^3.24.0');
+      expect(pkg.dependencies['@hookform/resolvers']).toBe('^3.10.0');
+
+      expect(result.packages).toEqual([
+        { name: 'react-hook-form', installed: true, added: true },
+        { name: 'zod', installed: true, added: true },
+        { name: '@hookform/resolvers', installed: true, added: true },
+      ]);
+
+      expect(stdoutOutput).toContain('+ react-hook-form: added to package.json (run npm install)');
+      expect(stdoutOutput).toContain('+ zod: added to package.json (run npm install)');
+      expect(stdoutOutput).toContain('+ @hookform/resolvers: added to package.json (run npm install)');
+    });
+
+    it('does not touch package.json if dependencies are already installed', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify(
+          {
+            name: 'my-app',
+            dependencies: {
+              'react-hook-form': '^7.50.0',
+              zod: '^3.23.0',
+              '@hookform/resolvers': '^3.9.0',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      const result = await executeGenerateForm('login', { cwd: tmpDir });
+
+      const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8'));
+      expect(pkg.dependencies['react-hook-form']).toBe('^7.50.0');
+      expect(pkg.dependencies.zod).toBe('^3.23.0');
+      expect(pkg.dependencies['@hookform/resolvers']).toBe('^3.9.0');
+
+      expect(result.packages).toEqual([
+        { name: 'react-hook-form', installed: true, added: false },
+        { name: 'zod', installed: true, added: false },
+        { name: '@hookform/resolvers', installed: true, added: false },
+      ]);
+
+      expect(stdoutOutput).toContain('✔ react-hook-form: installed');
+      expect(stdoutOutput).toContain('✔ zod: installed');
+      expect(stdoutOutput).toContain('✔ @hookform/resolvers: installed');
+    });
+
+    it('does not modify package.json when dryRun is true', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      const initialPkg = JSON.stringify({ name: 'my-app', dependencies: {} }, null, 2);
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), initialPkg);
+
+      const result = await executeGenerateForm('dry-form', { cwd: tmpDir, dryRun: true });
+
+      const afterPkg = fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8');
+      expect(afterPkg).toBe(initialPkg);
+
+      expect(result.packages).toEqual([
+        { name: 'react-hook-form', installed: false, added: false },
+        { name: 'zod', installed: false, added: false },
+        { name: '@hookform/resolvers', installed: false, added: false },
+      ]);
+
+      expect(stdoutOutput).toContain('⚠ react-hook-form: missing (install with npm i react-hook-form)');
+      expect(stdoutOutput).toContain('⚠ zod: missing (install with npm i zod)');
+      expect(stdoutOutput).toContain('⚠ @hookform/resolvers: missing (install with npm i @hookform/resolvers)');
     });
   });
 
