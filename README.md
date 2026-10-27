@@ -293,6 +293,31 @@ lumen g feature dashboard --force
 - `--with-store` — Hint to generate associated state store (`lumen g store <name>`)
 - `--with-service` — Hint to generate associated API service (`lumen g service <name>`)
 
+### `lumen generate ui theme-<name>` (alias: `lumen g ui theme-<name>`, `lumen g ui theme <name>`)
+
+Applies a preset visual theme tokens palette to the project's `themes.css` for Tailwind v4. Preserves existing custom tokens, `@custom-variant`, and previously applied themes non-destructively.
+
+```bash
+# List all 13 available preset themes
+lumen g ui theme --list
+lumen g ui theme -l
+
+# Apply a theme preset
+lumen g ui theme-autumn-maple
+lumen g ui theme calm-lake
+
+# Preview changes or force overwrite
+lumen g ui theme-neon-noir --dry-run
+lumen g ui theme-sunset-glow --force
+lumen g ui theme-minimal-gray --json
+```
+
+**Options:**
+- `-l, --list` — List all available theme presets with their IDs, names, descriptions, and font families
+- `--dry-run` — Preview token changes and diff without writing to disk
+- `--force` — Overwrite existing theme tokens if already applied
+- `-j, --json` — Output structured JSON result
+
 ## Documentation & Roadmap
 
 
