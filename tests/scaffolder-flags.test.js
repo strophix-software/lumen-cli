@@ -90,7 +90,7 @@ describe('scaffolder-flags module', () => {
       } catch (err) {
         expect(err.code).toBe(EXIT.USER);
         expect(err.message).toContain('Invalid architecture preset "monolith"');
-        expect(err.message).toContain('feature-based, type-based, hybrid, none');
+        expect(err.message).toContain('feature-based, type-based, none');
       }
     });
 
@@ -236,16 +236,15 @@ describe('scaffolder-flags module', () => {
 });
 
 describe('architecture/framework combos (#51)', () => {
-  it('rejects hybrid without a framework (React default)', () => {
-    expect(() => validateScaffolderFlags({ arch: 'hybrid' })).toThrow(/only valid for Next/);
-  });
-  it('rejects hybrid with react', () => {
-    expect(() => validateScaffolderFlags({ arch: 'hybrid', framework: 'react' })).toThrow(/not valid for framework "react"/);
+  it('rejects legacy hybrid architecture across all frameworks (#62, #70)', () => {
+    expect(() => validateScaffolderFlags({ arch: 'hybrid' })).toThrow(/Invalid architecture preset "hybrid"/);
+    expect(() => validateScaffolderFlags({ arch: 'hybrid', framework: 'react' })).toThrow(/Invalid architecture preset "hybrid"/);
+    expect(() => validateScaffolderFlags({ arch: 'hybrid', framework: 'next' })).toThrow(/Invalid architecture preset "hybrid"/);
   });
   it('rejects type-based with next', () => {
     expect(() => validateScaffolderFlags({ arch: 'type-based', framework: 'next' })).toThrow(/not valid for framework "next"/);
   });
-  it('accepts hybrid with next', () => {
-    expect(() => validateScaffolderFlags({ arch: 'hybrid', framework: 'next' })).not.toThrow();
+  it('accepts feature-based with next', () => {
+    expect(() => validateScaffolderFlags({ arch: 'feature-based', framework: 'next' })).not.toThrow();
   });
 });

@@ -268,7 +268,7 @@ describe('lumen g feature command', () => {
     }
   });
 
-  it('keeps .lumen/ files in sync after feature generation when agentDocs: true (#31)', async () => {
+  it('keeps AGENTS.md in sync after feature generation when agentDocs: true (#31, #63)', async () => {
     const fixtures = await loadValidFixtures();
     const fixture = fixtures.find(
       (f) => f.manifest.architecture?.preset === 'feature-based' && f.manifest.paths?.features
@@ -287,25 +287,22 @@ describe('lumen g feature command', () => {
     const program1 = createTestProgram();
     await program1.parseAsync(['node', 'lumen', 'g', 'feature', 'orders']);
 
-    const lumenDir = path.join(tmpDir, '.lumen');
-    expect(fs.existsSync(lumenDir)).toBe(true);
-    expect(fs.existsSync(path.join(lumenDir, 'project.json'))).toBe(true);
-    expect(fs.existsSync(path.join(lumenDir, 'conventions.md'))).toBe(true);
+    const agentsMd = path.join(tmpDir, 'AGENTS.md');
+    expect(fs.existsSync(agentsMd)).toBe(true);
+    const content1 = fs.readFileSync(agentsMd, 'utf8');
+    expect(content1).toContain('Single Source of Truth (SSOT)');
+    expect(content1).toContain('lumen.config.json');
 
-    const archFile = path.join(lumenDir, 'architecture.json');
-    expect(fs.existsSync(archFile)).toBe(true);
-    const arch1 = JSON.parse(fs.readFileSync(archFile, 'utf8'));
-    expect(arch1.modules).toEqual(['orders']);
-
-    // Generate a second feature and ensure deterministic sorted modules
+    // Generate a second feature and ensure AGENTS.md is maintained
     const program2 = createTestProgram();
     await program2.parseAsync(['node', 'lumen', 'g', 'feature', 'auth']);
 
-    const arch2 = JSON.parse(fs.readFileSync(archFile, 'utf8'));
-    expect(arch2.modules).toEqual(['auth', 'orders']);
+    expect(fs.existsSync(agentsMd)).toBe(true);
+    const content2 = fs.readFileSync(agentsMd, 'utf8');
+    expect(content2).toContain('Single Source of Truth (SSOT)');
   });
 
-  it('does not create or modify .lumen/ when agentDocs is false (#31)', async () => {
+  it('does not create or modify AGENTS.md when agentDocs is false (#31, #63)', async () => {
     const fixtures = await loadValidFixtures();
     const fixture = fixtures[0];
 
@@ -322,11 +319,11 @@ describe('lumen g feature command', () => {
     const program = createTestProgram();
     await program.parseAsync(['node', 'lumen', 'g', 'feature', 'products']);
 
-    const lumenDir = path.join(tmpDir, '.lumen');
-    expect(fs.existsSync(lumenDir)).toBe(false);
+    const agentsMd = path.join(tmpDir, 'AGENTS.md');
+    expect(fs.existsSync(agentsMd)).toBe(false);
   });
 
-  it('does not create .lumen/ when running with --dry-run even if agentDocs is true (#31)', async () => {
+  it('does not create AGENTS.md when running with --dry-run even if agentDocs is true (#31, #63)', async () => {
     const fixtures = await loadValidFixtures();
     const fixture = fixtures[0];
 
@@ -343,7 +340,7 @@ describe('lumen g feature command', () => {
     const program = createTestProgram();
     await program.parseAsync(['node', 'lumen', 'g', 'feature', 'checkout', '--dry-run']);
 
-    const lumenDir = path.join(tmpDir, '.lumen');
-    expect(fs.existsSync(lumenDir)).toBe(false);
+    const agentsMd = path.join(tmpDir, 'AGENTS.md');
+    expect(fs.existsSync(agentsMd)).toBe(false);
   });
 });

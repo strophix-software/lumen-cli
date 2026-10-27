@@ -618,7 +618,7 @@ describe('lumen generate ui command', () => {
     });
   });
 
-  describe('Agent context sync (.lumen)', () => {
+  describe('Agent context sync (AGENTS.md)', () => {
     it('syncs agent context when agentDocs: true and not in dry-run', async () => {
       const fixtures = await loadValidFixtures();
       const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
@@ -639,8 +639,9 @@ describe('lumen generate ui command', () => {
 
       await executeGenerateUi('button', { cwd: tmpDir });
 
-      const lumenDir = path.join(tmpDir, '.lumen');
-      expect(fs.existsSync(lumenDir)).toBe(true);
+      const agentsMd = path.join(tmpDir, 'AGENTS.md');
+      expect(fs.existsSync(agentsMd)).toBe(true);
+      expect(fs.readFileSync(agentsMd, 'utf8')).toContain('Single Source of Truth (SSOT)');
     });
 
     it('does not sync agent context in --dry-run mode even if agentDocs is true', async () => {
@@ -658,8 +659,8 @@ describe('lumen generate ui command', () => {
 
       await executeGenerateUi('button', { cwd: tmpDir, dryRun: true });
 
-      const lumenDir = path.join(tmpDir, '.lumen');
-      expect(fs.existsSync(lumenDir)).toBe(false);
+      const agentsMd = path.join(tmpDir, 'AGENTS.md');
+      expect(fs.existsSync(agentsMd)).toBe(false);
     });
   });
 

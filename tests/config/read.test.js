@@ -131,7 +131,7 @@ describe('normalizeManifest v2.1', () => {
   it('preserves existing validation, harness commands, and agentDocs boolean', () => {
     const input = {
       manifestVersion: 2,
-      architecture: { preset: 'hybrid', type: 'hybrid', validation: 'relaxed' },
+      architecture: { preset: 'feature-based', type: 'feature-based', validation: 'relaxed' },
       harness: { commands: [{ name: 'lint', command: 'oxlint .' }] },
       agentDocs: true,
     };

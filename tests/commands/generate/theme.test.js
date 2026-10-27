@@ -677,18 +677,19 @@ describe('Issue #10: UI Theme generator and preset tokens', () => {
       await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'ui', 'theme-professional']).finished;
       expect(process.exitCode).toBeUndefined();
 
-      const lumenDir = path.join(tmpDir, '.lumen');
-      expect(fs.existsSync(lumenDir)).toBe(true);
+      const agentsMd = path.join(tmpDir, 'AGENTS.md');
+      expect(fs.existsSync(agentsMd)).toBe(true);
+      expect(fs.readFileSync(agentsMd, 'utf8')).toContain('Single Source of Truth (SSOT)');
     });
 
-    it('does not create .lumen when running with --dry-run even if agentDocs is true', async () => {
+    it('does not create AGENTS.md when running with --dry-run even if agentDocs is true', async () => {
       await createTailwindProject({ agentDocs: true });
 
       await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'ui', 'theme-professional', '--dry-run']).finished;
       expect(process.exitCode).toBeUndefined();
 
-      const lumenDir = path.join(tmpDir, '.lumen');
-      expect(fs.existsSync(lumenDir)).toBe(false);
+      const agentsMd = path.join(tmpDir, 'AGENTS.md');
+      expect(fs.existsSync(agentsMd)).toBe(false);
     });
   });
 });
