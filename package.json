@@ -1,6 +1,6 @@
 {
   "name": "@lumen-sh/cli",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "description": "Day-to-day CLI for Lumen projects",
   "type": "module",
   "main": "./src/index.js",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
-    "create-lumen": "^2.0.0-beta.6"
+    "create-lumen": "^2.0.0-beta.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",
