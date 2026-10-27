@@ -196,6 +196,61 @@ describe('lumen g form generator', () => {
       expect(content).toContain("text-destructive");
     });
 
+    it('wires UI Kit components actively when --ui is provided or UI components exist', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      const manifest = JSON.parse(JSON.stringify(fixture.manifest));
+      manifest.ui = { kit: 'shadcn' };
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(manifest, null, 2)
+      );
+
+      // Create dummy button, input, label in paths.ui
+      const uiDir = path.join(tmpDir, manifest.paths.ui);
+      fs.mkdirSync(uiDir, { recursive: true });
+      fs.writeFileSync(path.join(uiDir, 'button.tsx'), 'export const Button = () => null;');
+      fs.writeFileSync(path.join(uiDir, 'input.tsx'), 'export const Input = () => null;');
+      fs.writeFileSync(path.join(uiDir, 'label.tsx'), 'export const Label = () => null;');
+
+      await executeGenerateForm('contact', { cwd: tmpDir });
+
+      const componentFile = path.join(tmpDir, manifest.paths.components, 'ContactForm.tsx');
+      const content = fs.readFileSync(componentFile, 'utf8');
+
+      expect(content).toContain("import { Button } from './ui/button';");
+      expect(content).toContain("import { Input } from './ui/input';");
+      expect(content).toContain("import { Label } from './ui/label';");
+      expect(content).toContain('<Label');
+      expect(content).toContain('<Input');
+      expect(content).toContain('<Button');
+    });
+
+    it('wires UI Kit components actively when --ui flag is explicitly set', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      const manifest = JSON.parse(JSON.stringify(fixture.manifest));
+      manifest.ui = { kit: 'shadcn' };
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(manifest, null, 2)
+      );
+
+      await executeGenerateForm('explicit-ui', { cwd: tmpDir, ui: true });
+
+      const componentFile = path.join(tmpDir, manifest.paths.components, 'ExplicitUiForm.tsx');
+      const content = fs.readFileSync(componentFile, 'utf8');
+
+      expect(content).toContain("import { Button } from './ui/button';");
+      expect(content).toContain("import { Input } from './ui/input';");
+      expect(content).toContain("import { Label } from './ui/label';");
+      expect(content).toContain('<Label');
+      expect(content).toContain('<Input');
+      expect(content).toContain('<Button');
+    });
+
     it('adds "use client" directive when manifest.framework.name is next', async () => {
       const fixtures = await loadValidFixtures();
       const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');

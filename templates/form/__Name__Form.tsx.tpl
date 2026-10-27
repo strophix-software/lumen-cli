@@ -33,10 +33,10 @@ export function {{Name}}Form({ defaultValues, onSubmit }: {{Name}}FormProps) {
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="{{formClassName}}">
       <div className="{{fieldGroupClassName}}">
-        <label htmlFor="{{nameKebab}}-title" className="{{labelClassName}}">
+        <{{labelTag}} htmlFor="{{nameKebab}}-title" className="{{labelClassName}}">
           Title
-        </label>
-        <input
+        </{{labelTag}}>
+        <{{inputTag}}
           id="{{nameKebab}}-title"
           type="text"
           className="{{inputClassName}}"
@@ -48,9 +48,9 @@ export function {{Name}}Form({ defaultValues, onSubmit }: {{Name}}FormProps) {
       </div>
 
       <div className="{{fieldGroupClassName}}">
-        <label htmlFor="{{nameKebab}}-description" className="{{labelClassName}}">
+        <{{labelTag}} htmlFor="{{nameKebab}}-description" className="{{labelClassName}}">
           Description
-        </label>
+        </{{labelTag}}>
         <textarea
           id="{{nameKebab}}-description"
           className="{{inputClassName}}"
@@ -61,9 +61,9 @@ export function {{Name}}Form({ defaultValues, onSubmit }: {{Name}}FormProps) {
         )}
       </div>
 
-      <button type="submit" disabled={isSubmitting} className="{{buttonClassName}}">
+      <{{buttonTag}} type="submit" disabled={isSubmitting} className="{{buttonClassName}}">
         {isSubmitting ? 'Submitting...' : 'Submit'}
-      </button>
+      </{{buttonTag}}>
     </form>
   );
 }

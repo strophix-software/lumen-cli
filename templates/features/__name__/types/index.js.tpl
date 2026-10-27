@@ -4,7 +4,7 @@
  */
 
 /**
- * @typedef {Object} {{Name}}State
+ * @typedef {Object} {{Name}}Model
  * @property {string} id
  * @property {string} name
  */

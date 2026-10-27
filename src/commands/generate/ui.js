@@ -2457,7 +2457,7 @@ export function ensureCnUtil(root, isTs, options = {}) {
  */
 export function registerUi(generate) {
   const ui = generate
-    .command('ui [target] [themeName]')
+    .command('ui [targets...]')
     .alias('theme')
     .description('Resolve and generate UI components from the Lumen Registry or apply preset theme tokens')
     .option('-l, --list', 'List available components or theme presets')
@@ -2479,6 +2479,7 @@ Examples:
   $ lumen g ui theme-neon-noir --dry-run
   $ lumen g ui theme-ocean-breeze --force
   $ lumen g ui button
+  $ lumen g ui button card dialog tabs
   $ lumen g ui @lumen/app-shell
   $ lumen g ui @shadcn/dialog
   $ lumen g ui card
@@ -2486,7 +2487,7 @@ Examples:
   $ lumen g ui data-table
   $ lumen g ui --list`
     )
-    .action(async (target, themeName, cmdOpts, command) => {
+    .action(async (targets, cmdOpts, command) => {
       const globals = generate.optsWithGlobals ? generate.optsWithGlobals() : generate.opts ? generate.opts() : {};
       const options = {
         ...globals,
@@ -2497,6 +2498,10 @@ Examples:
       }
       const cwd = options.cwd || process.cwd();
       const isJson = Boolean(options.json);
+
+      const argsList = Array.isArray(targets) ? targets : (targets ? [targets] : []);
+      const target = argsList[0];
+      const themeName = argsList[1];
 
       const isThemeAlias = command?.name?.() === 'theme';
 
@@ -2571,7 +2576,12 @@ Examples:
         });
       }
 
-      // 7. Generate UI component from registry
+      // 7. Multiple components (e.g. `lumen g ui badge dialog table tabs`)
+      if (argsList.length > 1) {
+        return await executeGenerateUi(argsList, options);
+      }
+
+      // 8. Generate single UI component from registry
       return await executeGenerateUi(target, options);
     });
 
@@ -2617,6 +2627,41 @@ export async function executeApplyTheme(themeId, options = {}) {
  * @returns {Promise<object>}
  */
 export async function executeGenerateUi(name, options = {}) {
+  // 0. Handle multiple components passed as an array
+  if (Array.isArray(name)) {
+    if (name.length === 0) {
+      if (options.list) return await executeGenerateUi(null, options);
+      throw new LumenError('UI component or theme preset name is required.', {
+        code: EXIT.USER,
+        hint: 'Specify one or more components (e.g. "lumen g ui button card dialog").',
+      });
+    }
+    if (name.length === 1) {
+      return await executeGenerateUi(name[0], options);
+    }
+
+    const isJson = Boolean(options.json);
+    const results = [];
+    for (const singleName of name) {
+      const singleOpts = isJson ? { ...options, json: false, silentStdout: true } : options;
+      const res = await executeGenerateUi(singleName, singleOpts);
+      results.push(res);
+    }
+
+    const payload = {
+      success: true,
+      kind: 'ui-multi',
+      count: results.length,
+      results,
+    };
+
+    if (isJson) {
+      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    }
+
+    return payload;
+  }
+
   // 1. Handle --list or 'theme --list'
   if (options.list || (!name && options.list)) {
     const catalog = listUiComponents();
@@ -2935,7 +2980,9 @@ export async function executeGenerateUi(name, options = {}) {
       })),
       packages: finalDepStatus,
     };
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    if (!options.silentStdout) {
+      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    }
   } else {
     const degreeLabel =
       resolved.degree === 2
