@@ -653,12 +653,12 @@ describe('Issue #10: UI Theme generator and preset tokens', () => {
       expect(stderrOutput).toContain('UI component or theme preset name is required');
     });
 
-    it('rejects UI component resolution when not a theme preset (notifying of registry)', async () => {
+    it('resolves UI component via registry when not a theme preset (lumen g ui button)', async () => {
       await createTailwindProject();
 
       await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'ui', 'button']).finished;
-      expect(process.exitCode).toBe(EXIT.USER);
-      expect(stderrOutput).toContain('requires the Lumen UI registry');
+      expect(process.exitCode).toBeUndefined();
+      expect(stdoutOutput).toContain('Button');
     });
 
     it('supports direct preset name without theme- prefix (lumen g ui calm-lake)', async () => {
