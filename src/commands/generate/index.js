@@ -7,6 +7,7 @@ import { registerStore } from './store.js';
 import { registerForm } from './form.js';
 import { registerUi } from './ui.js';
 import { registerComponent } from './component.js';
+import { registerHook } from './hook.js';
 
 /** Attach every `lumen generate <kind>` subcommand to the generate command. */
 export function registerGenerators(generate) {
@@ -19,4 +20,5 @@ export function registerGenerators(generate) {
   registerForm(generate);
   registerUi(generate);
   registerComponent(generate);
+  registerHook(generate);
 }
