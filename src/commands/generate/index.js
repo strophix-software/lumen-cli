@@ -5,6 +5,7 @@ import { registerRoute } from './route.js';
 import { registerService } from './service.js';
 import { registerStore } from './store.js';
 import { registerForm } from './form.js';
+import { registerUi } from './ui.js';
 
 /** Attach every `lumen generate <kind>` subcommand to the generate command. */
 export function registerGenerators(generate) {
@@ -15,4 +16,5 @@ export function registerGenerators(generate) {
   registerService(generate);
   registerStore(generate);
   registerForm(generate);
+  registerUi(generate);
 }
