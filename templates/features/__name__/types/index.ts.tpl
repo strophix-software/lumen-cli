@@ -2,7 +2,7 @@ export interface {{Name}}Props {
   className?: string;
 }
 
-export interface {{Name}}State {
+export interface {{Name}}Model {
   id: string;
   name: string;
 }

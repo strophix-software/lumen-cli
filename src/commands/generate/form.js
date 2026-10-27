@@ -50,6 +50,7 @@ export function registerForm(generate) {
     .description('Generate a validated React Hook Form with Zod schema')
     .option('--feature <feature>', 'Place form under a feature module (e.g. auth, billing)')
     .option('--service <service>', 'Wire onSubmit to a service module import')
+    .option('--ui', 'Wire installed UI kit components (Button, Input, Label) directly in form')
     .option('--dry-run', 'Show files that would be created without writing them')
     .option('-f, --force', 'Overwrite existing files')
     .addHelpText(
@@ -131,6 +132,29 @@ export async function executeGenerateForm(name, options = {}) {
   let errorClassName = '';
   let buttonClassName = '';
 
+  let labelTag = 'label';
+  let inputTag = 'input';
+  let buttonTag = 'button';
+
+  let useUiKit = Boolean(options.ui);
+  if (!useUiKit && isShadcn && paths.ui) {
+    const uiDir = path.resolve(root, paths.ui);
+    const hasButton =
+      fs.existsSync(path.join(uiDir, 'button.tsx')) ||
+      fs.existsSync(path.join(uiDir, 'button.jsx')) ||
+      fs.existsSync(path.join(uiDir, 'Button.tsx'));
+    const hasInput =
+      fs.existsSync(path.join(uiDir, 'input.tsx')) ||
+      fs.existsSync(path.join(uiDir, 'input.jsx'));
+    const hasLabel =
+      fs.existsSync(path.join(uiDir, 'label.tsx')) ||
+      fs.existsSync(path.join(uiDir, 'label.jsx'));
+
+    if (hasButton && hasInput && hasLabel) {
+      useUiKit = true;
+    }
+  }
+
   if (isShadcn && paths.ui) {
     // Derive relative import path from targetDir to paths.ui
     let relativeUi = path.posix.relative(targetDir, paths.ui);
@@ -138,14 +162,29 @@ export async function executeGenerateForm(name, options = {}) {
       relativeUi = `./${relativeUi}`;
     }
 
-    uiImports = `// UI Kit components (${relativeUi})\n// import { Button } from '${relativeUi}/button';\n// import { Input } from '${relativeUi}/input';\n// import { Label } from '${relativeUi}/label';`;
-    if (isTailwind) {
-      formClassName = 'space-y-4';
-      fieldGroupClassName = 'space-y-2';
-      labelClassName = 'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70';
-      inputClassName = 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
-      errorClassName = 'text-sm font-medium text-destructive';
-      buttonClassName = 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2';
+    if (useUiKit) {
+      uiImports = `import { Button } from '${relativeUi}/button';\nimport { Input } from '${relativeUi}/input';\nimport { Label } from '${relativeUi}/label';\n`;
+      labelTag = 'Label';
+      inputTag = 'Input';
+      buttonTag = 'Button';
+      if (isTailwind) {
+        formClassName = 'space-y-4';
+        fieldGroupClassName = 'space-y-2';
+        labelClassName = '';
+        inputClassName = '';
+        errorClassName = 'text-sm font-medium text-destructive';
+        buttonClassName = '';
+      }
+    } else {
+      uiImports = `// UI Kit components (${relativeUi})\n// import { Button } from '${relativeUi}/button';\n// import { Input } from '${relativeUi}/input';\n// import { Label } from '${relativeUi}/label';`;
+      if (isTailwind) {
+        formClassName = 'space-y-4';
+        fieldGroupClassName = 'space-y-2';
+        labelClassName = 'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70';
+        inputClassName = 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+        errorClassName = 'text-sm font-medium text-destructive';
+        buttonClassName = 'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2';
+      }
     }
   } else if (isTailwind) {
     formClassName = 'space-y-4 max-w-md';
@@ -195,6 +234,9 @@ export async function executeGenerateForm(name, options = {}) {
     inputClassName,
     errorClassName,
     buttonClassName,
+    labelTag,
+    inputTag,
+    buttonTag,
   };
 
   // Build execution plan

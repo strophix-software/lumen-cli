@@ -58,6 +58,10 @@ describe('lumen g feature command', () => {
     expect(fs.existsSync(path.join(featureDir, 'components', 'Billing.tsx'))).toBe(true);
     expect(fs.existsSync(path.join(featureDir, 'hooks', 'useBilling.ts'))).toBe(true);
     expect(fs.existsSync(path.join(featureDir, 'types', 'index.ts'))).toBe(true);
+
+    const typesContent = fs.readFileSync(path.join(featureDir, 'types', 'index.ts'), 'utf8');
+    expect(typesContent).toContain('BillingModel');
+    expect(typesContent).not.toContain('BillingState');
     expect(fs.existsSync(path.join(featureDir, 'services'))).toBe(true);
 
     const indexContent = fs.readFileSync(path.join(featureDir, 'index.ts'), 'utf8');

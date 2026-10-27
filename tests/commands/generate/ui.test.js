@@ -426,6 +426,56 @@ describe('lumen generate ui command', () => {
       expect(fs.existsSync(badgeFile)).toBe(true);
     });
 
+    it('generates multiple components in sequence when array is provided to executeGenerateUi', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      const result = await executeGenerateUi(['button', 'badge'], { cwd: tmpDir });
+
+      expect(result.success).toBe(true);
+      expect(result.kind).toBe('ui-multi');
+      expect(result.count).toBe(2);
+      expect(result.results.length).toBe(2);
+
+      const buttonFile = path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx');
+      const badgeFile = path.join(tmpDir, fixture.manifest.paths.ui, 'Badge.tsx');
+      expect(fs.existsSync(buttonFile)).toBe(true);
+      expect(fs.existsSync(badgeFile)).toBe(true);
+    });
+
+    it('supports generating multiple components in sequence via CLI lumen g ui button badge', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2)
+      );
+
+      const program = createTestProgram();
+      await program.parseAsync(['node', 'lumen', 'g', 'ui', 'button', 'badge', '-c', tmpDir]);
+
+      const buttonFile = path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx');
+      const badgeFile = path.join(tmpDir, fixture.manifest.paths.ui, 'Badge.tsx');
+      expect(fs.existsSync(buttonFile)).toBe(true);
+      expect(fs.existsSync(badgeFile)).toBe(true);
+    });
+
     it('rejects when paths.ui is not configured in manifest', async () => {
       const fixtures = await loadValidFixtures();
       const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
