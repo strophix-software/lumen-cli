@@ -276,4 +276,25 @@ describe('lumen g route command (#53)', () => {
       program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'route', '../escape'])
     ).rejects.toThrow(LumenError);
   });
+
+  it('emits route handler into src/app without duplicate prefixes when paths.pages is "src/app" (#69)', async () => {
+    const fixtures = await loadValidFixtures();
+    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+    const manifest = {
+      ...nextFixture.manifest,
+      paths: {
+        ...nextFixture.manifest.paths,
+        pages: 'src/app',
+      },
+    };
+
+    fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+    const program = createCli();
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'route', 'analytics']);
+
+    const routeFile = path.join(tmpDir, 'src/app/api/analytics/route.ts');
+    expect(fs.existsSync(routeFile)).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'src/src/app'))).toBe(false);
+  });
 });

@@ -11,18 +11,22 @@ const __dirname = path.dirname(__filename);
 const PAGE_TEMPLATE_DIR = path.resolve(__dirname, '../../../templates/page');
 
 const ROUTER_FILENAMES = [
-  'index.tsx',
   'routes.tsx',
   'router.tsx',
-  'index.jsx',
+  'index.tsx',
+  'App.tsx',
   'routes.jsx',
   'router.jsx',
-  'index.ts',
+  'index.jsx',
+  'App.jsx',
   'routes.ts',
   'router.ts',
-  'index.js',
+  'index.ts',
+  'App.ts',
   'routes.js',
   'router.js',
+  'index.js',
+  'App.js',
 ];
 
 /**
@@ -107,18 +111,39 @@ export function parseRouteInput(input) {
 }
 
 /**
- * Searches for a router file under the pages directory.
+ * Searches for a router file under the pages directory, its parent directories, or project src.
  * @param {string} pagesDir Absolute path to pages directory
+ * @param {string} [root] Absolute path to project root
  * @returns {string | null} Absolute path to router file or null
  */
-function findRouterFile(pagesDir) {
-  if (!fs.existsSync(pagesDir)) {
-    return null;
+export function findRouterFile(pagesDir, root = null) {
+  const candidateDirs = [];
+  if (pagesDir && fs.existsSync(pagesDir)) {
+    candidateDirs.push(pagesDir);
   }
-  for (const filename of ROUTER_FILENAMES) {
-    const candidate = path.join(pagesDir, filename);
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      return candidate;
+  if (pagesDir) {
+    const parent = path.dirname(pagesDir);
+    if (fs.existsSync(parent) && !candidateDirs.includes(parent)) {
+      candidateDirs.push(parent);
+    }
+  }
+  if (root) {
+    const srcApp = path.join(root, 'src', 'app');
+    if (fs.existsSync(srcApp) && !candidateDirs.includes(srcApp)) {
+      candidateDirs.push(srcApp);
+    }
+    const srcDir = path.join(root, 'src');
+    if (fs.existsSync(srcDir) && !candidateDirs.includes(srcDir)) {
+      candidateDirs.push(srcDir);
+    }
+  }
+
+  for (const dir of candidateDirs) {
+    for (const filename of ROUTER_FILENAMES) {
+      const candidate = path.join(dir, filename);
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
     }
   }
   return null;
@@ -346,9 +371,9 @@ Examples:
         },
       });
 
-      // Search for router file in paths.pages
+      // Search for router file in paths.pages (and parent/src)
       const pagesDir = path.resolve(root, paths.pages);
-      const routerFilePath = findRouterFile(pagesDir);
+      const routerFilePath = findRouterFile(pagesDir, root);
       let registrationResult = null;
 
       if (routerFilePath) {
