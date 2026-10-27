@@ -291,6 +291,7 @@ describe('lumen g feature command', () => {
 
     const agentsMd = path.join(tmpDir, 'AGENTS.md');
     expect(fs.existsSync(agentsMd)).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.lumen'))).toBe(false);
     const content1 = fs.readFileSync(agentsMd, 'utf8');
     expect(content1).toContain('Single Source of Truth (SSOT)');
     expect(content1).toContain('lumen.config.json');
@@ -300,6 +301,7 @@ describe('lumen g feature command', () => {
     await program2.parseAsync(['node', 'lumen', 'g', 'feature', 'auth']);
 
     expect(fs.existsSync(agentsMd)).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.lumen'))).toBe(false);
     const content2 = fs.readFileSync(agentsMd, 'utf8');
     expect(content2).toContain('Single Source of Truth (SSOT)');
   });

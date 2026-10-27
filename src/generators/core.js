@@ -191,44 +191,20 @@ export function applyPlan(plan, { dryRun = false, force = false } = {}) {
 }
 
 /**
- * Synchronizes the .lumen agent context directory when manifest.agentDocs is enabled.
- * Emits .lumen/project.json, .lumen/architecture.json, and .lumen/conventions.md.
- * In architecture.json, populates `modules` array with discovered feature directories if paths.features is defined.
- * Reference: issue #31.
+ * Synchronizes the agent context (AGENTS.md) when manifest.agentDocs is enabled.
+ * Emits AGENTS.md at the project root using lumen.config.json as the single source of truth (SSOT).
+ * The legacy .lumen/ directory is completely deprecated and removed in favor of root AGENTS.md.
+ * Reference: issue #31, #63.
  *
  * @param {string} root Project root directory
  */
 export async function syncAgentContext(root) {
   try {
-    const { manifest, paths } = readConfig({ cwd: root });
+    const { manifest } = readConfig({ cwd: root });
     if (!manifest?.agentDocs) return;
 
     const { emitAgentContext } = await import('create-lumen/src/agent-context.js');
     await emitAgentContext(root, manifest);
-
-    // Discover feature modules deterministically if paths.features is configured
-    const lumenDir = path.join(root, '.lumen');
-    const archFile = path.join(lumenDir, 'architecture.json');
-    if (fs.existsSync(archFile)) {
-      try {
-        const arch = JSON.parse(fs.readFileSync(archFile, 'utf8'));
-        let modules = [];
-        if (paths?.features) {
-          const featuresDir = path.resolve(root, paths.features);
-          if (fs.existsSync(featuresDir)) {
-            const entries = fs.readdirSync(featuresDir, { withFileTypes: true });
-            modules = entries
-              .filter((d) => d.isDirectory())
-              .map((d) => d.name)
-              .sort();
-          }
-        }
-        arch.modules = modules;
-        fs.writeFileSync(archFile, JSON.stringify(arch, null, 2) + '\n', 'utf8');
-      } catch {
-        // Ignore JSON parse error
-      }
-    }
   } catch {
     // Gracefully handle if config cannot be read
   }
