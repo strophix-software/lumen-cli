@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-alpha.3] — 2026-10-27
+
+### Added
+
+- **Full compatibility with `create-lumen@^2.0.0-beta.5`** (#87):
+  - **State management flag (`-s, --state <lib>`)**: Support and forward `-s, --state <zustand|redux|none>` (with `rtk` / `reduxtoolkit` alias) in `lumen create` and `lumen init`.
+  - **Fullstack scaffolding flags**: Added and validated `--db, --database <orm>`, `--db-provider <provider>`, `--docker`, `--route-groups`, `--agent-docs`, and `--testing <framework>`.
+  - **Store barrels discovery in `sync-barrels`**: Discovers shared stores (`src/shared/stores` or `src/stores` derived from `paths.services`) and feature store modules (`src/features/<feat>/store`), automatically generating export barrels and nesting them in feature root barrels.
+  - **Expanded E2E verification matrix**: 5 comprehensive scaffold and integration scenarios covering Next.js App Router fullstack + Prisma, React + Vite SPA, architecture boundaries (preset none), Redux Toolkit store generation & barrel discovery, and preflight guardrails.
+
+### Changed
+
+- **Bump `create-lumen` dependency to `^2.0.0-beta.5`** (#87).
+- **Updated documentation and command references**: Added full table of scaffolding options and examples in `README.md`.
+
 ## [1.0.0-alpha.2] — 2026-10-27
 
 ### Changed

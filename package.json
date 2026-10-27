@@ -1,6 +1,6 @@
 {
   "name": "@lumen-sh/cli",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Day-to-day CLI for Lumen projects",
   "type": "module",
   "main": "./src/index.js",
