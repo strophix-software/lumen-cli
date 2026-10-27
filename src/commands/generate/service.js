@@ -189,6 +189,7 @@ export function registerService(generate) {
     .option('--paginated', 'Include pagination parameters and PageResult types')
     .option('--with-mocks', 'Generate mock data fixture file alongside service')
     .option('--server', 'Generate server-side domain service / DAL using database client (@/lib/db)')
+    .option('--client', 'Force client-side HTTP service client instead of server DAL')
     .option('--dry-run', 'Preview changes without writing to disk')
     .option('--force', 'Overwrite existing files')
     .addHelpText(
@@ -210,12 +211,15 @@ Examples:
       const isForce = Boolean(cmdOpts.force || globals.force);
       const isPaginated = Boolean(cmdOpts.paginated);
       const withMocks = Boolean(cmdOpts.withMocks);
-      const isServer = Boolean(cmdOpts.server);
-
       try {
         const validatedName = validateName(name);
 
         const { manifest, paths, root } = readConfig({ cwd });
+
+        const isPrisma = manifest?.database?.orm === 'prisma';
+        const isClientExplicit = Boolean(cmdOpts.client);
+        const isServerExplicit = Boolean(cmdOpts.server);
+        const isServer = isServerExplicit || (isPrisma && !isClientExplicit);
 
       // Resolve destination directory
       let targetDir;
