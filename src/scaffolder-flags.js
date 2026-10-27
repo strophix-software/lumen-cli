@@ -14,7 +14,7 @@ import { PRESETS } from 'create-lumen/src/cli-args.js';
 import { LumenError, EXIT } from './errors.js';
 
 const REACT_ARCHITECTURES = ['feature-based', 'type-based', 'none'];
-const NEXT_ARCHITECTURES = ['feature-based', 'hybrid', 'none'];
+const NEXT_ARCHITECTURES = ['feature-based', 'none'];
 
 export {
   TOOLING_LINTERS,
@@ -92,11 +92,6 @@ export function validateScaffolderFlags(options = {}) {
         { code: EXIT.USER }
       );
     }
-  } else if (chosenArch === 'hybrid' && !frameworkName) {
-    throw new LumenError(
-      'Architecture "hybrid" is only valid for Next.js; React allows feature-based, type-based, none',
-      { code: EXIT.USER, hint: 'Pass --framework next, or choose another --arch.' }
-    );
   }
 
   if (ui === 'shadcn' && styling !== undefined && styling !== 'tailwind') {
