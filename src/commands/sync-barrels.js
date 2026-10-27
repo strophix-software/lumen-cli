@@ -122,6 +122,14 @@ export function discoverBarrelDirectories(root, paths = {}) {
   addIfDir(paths.hooks);
   addIfDir(paths.utils);
 
+  // Discover stores directory if present (e.g. src/shared/stores or src/stores)
+  if (paths.services) {
+    const storesDir = path.join(path.dirname(path.resolve(root, paths.services)), 'stores');
+    if (fs.existsSync(storesDir) && fs.statSync(storesDir).isDirectory()) {
+      dirs.add(storesDir);
+    }
+  }
+
   // Discover feature barrels
   if (paths.features) {
     const featuresDir = path.resolve(root, paths.features);
@@ -136,7 +144,7 @@ export function discoverBarrelDirectories(root, paths = {}) {
           dirs.add(featDir);
 
           // Submodules inside feature
-          const subNames = ['components', 'hooks', 'services', 'types'];
+          const subNames = ['components', 'hooks', 'services', 'types', 'store', 'stores'];
           for (const sub of subNames) {
             const subDir = path.join(featDir, sub);
             if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {

@@ -279,4 +279,73 @@ describe('architecture/framework combos (#51)', () => {
       expect(manifest.tooling.formatter).toBe('none');
     });
   });
+
+  describe('create-lumen beta.5 options validation and resolution', () => {
+    it('accepts valid state management libraries (zustand, redux, none, rtk alias)', () => {
+      expect(() => validateScaffolderFlags({ state: 'zustand' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ state: 'redux' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ state: 'none' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ state: 'rtk' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ state: 'reduxtoolkit' })).not.toThrow();
+    });
+
+    it('rejects invalid state management library with LumenError exit 1', () => {
+      try {
+        validateScaffolderFlags({ state: 'mobx' });
+        expect.unreachable();
+      } catch (err) {
+        expect(err.code).toBe(EXIT.USER);
+        expect(err.message).toContain('Invalid state management "mobx"');
+        expect(err.message).toContain('zustand, redux, none');
+      }
+    });
+
+    it('accepts valid database ORM and provider', () => {
+      expect(() => validateScaffolderFlags({ db: 'prisma', dbProvider: 'supabase' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ db: 'prisma', dbProvider: 'postgresql' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ db: 'none' })).not.toThrow();
+    });
+
+    it('rejects invalid database ORM and provider', () => {
+      expect(() => validateScaffolderFlags({ db: 'drizzle' })).toThrow(/Invalid database ORM "drizzle"/);
+      expect(() => validateScaffolderFlags({ db: 'prisma', dbProvider: 'mysql' })).toThrow(/Invalid database provider "mysql"/);
+      expect(() => validateScaffolderFlags({ dbProvider: 'supabase' })).toThrow(/requires a database ORM/);
+    });
+
+    it('rejects database, docker, and routeGroups on react framework', () => {
+      expect(() => validateScaffolderFlags({ framework: 'react', db: 'prisma' })).toThrow(/only supported with framework "next"/);
+      expect(() => validateScaffolderFlags({ framework: 'react', docker: true })).toThrow(/only supported with framework "next"/);
+      expect(() => validateScaffolderFlags({ framework: 'react', routeGroups: true })).toThrow(/only supported with framework "next"/);
+    });
+
+    it('accepts valid testing frameworks and rejects invalid ones', () => {
+      expect(() => validateScaffolderFlags({ testing: 'vitest' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ testing: 'jest' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ testing: 'none' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ testing: 'mocha' })).toThrow(/Invalid testing framework "mocha"/);
+    });
+
+    it('detects tooling flags for db, docker, routeGroups, agentDocs', () => {
+      expect(hasToolingFlags({ db: 'prisma' })).toBe(true);
+      expect(hasToolingFlags({ docker: true })).toBe(true);
+      expect(hasToolingFlags({ routeGroups: true })).toBe(true);
+      expect(hasToolingFlags({ agentDocs: true })).toBe(true);
+    });
+
+    it('builds manifest with database, docker, routeGroups when resolved', () => {
+      const result = resolveScaffolderOptions({
+        template: 'next-ts',
+        db: 'prisma',
+        dbProvider: 'supabase',
+        docker: true,
+        routeGroups: true,
+      });
+
+      expect(result.manifest).toBeDefined();
+      const manifest = JSON.parse(result.manifest);
+      expect(manifest.database).toEqual({ orm: 'prisma', provider: 'supabase' });
+      expect(manifest.docker).toBe(true);
+      expect(manifest.routeGroups).toBe(true);
+    });
+  });
 });

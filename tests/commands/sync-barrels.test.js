@@ -105,6 +105,21 @@ describe('lumen sync-barrels command', () => {
       });
       expect(discovered).toContain(path.resolve(tmpDir, 'components'));
     });
+
+    it('discoverBarrelDirectories finds shared stores and feature store directories', () => {
+      const sharedStores = path.join(tmpDir, 'src/shared/stores');
+      const featureStore = path.join(tmpDir, 'src/features/auth/store');
+      fs.mkdirSync(sharedStores, { recursive: true });
+      fs.mkdirSync(featureStore, { recursive: true });
+
+      const discovered = discoverBarrelDirectories(tmpDir, {
+        services: 'src/shared/services',
+        features: 'src/features',
+      });
+
+      expect(discovered).toContain(path.resolve(sharedStores));
+      expect(discovered).toContain(path.resolve(featureStore));
+    });
   });
 
   describe('executeSyncBarrels in project workspace', () => {

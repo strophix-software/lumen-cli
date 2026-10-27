@@ -203,5 +203,83 @@ describe('create and init commands', () => {
 
       expect(runScaffolderSpy).not.toHaveBeenCalled();
     });
+
+    it('forwards create-lumen beta.5 flags (--state, --db, --docker, --route-groups, --agent-docs, --testing)', async () => {
+      const program = createCli().exitOverride();
+      await program.parseAsync([
+        'node',
+        'lumen',
+        'create',
+        'state-app',
+        '-y',
+        '-s',
+        'zustand',
+        '--testing',
+        'vitest',
+      ]);
+
+      expect(runScaffolderSpy).toHaveBeenCalledTimes(1);
+      const callArgs = runScaffolderSpy.mock.calls[0][0];
+      expect(callArgs).toContain('state-app');
+      expect(callArgs).toContain('--yes');
+      expect(callArgs).toContain('--state');
+      expect(callArgs[callArgs.indexOf('--state') + 1]).toBe('zustand');
+      expect(callArgs).toContain('--testing');
+      expect(callArgs[callArgs.indexOf('--testing') + 1]).toBe('vitest');
+    });
+
+    it('forwards database, docker, and route-groups flags on next template in create', async () => {
+      const program = createCli().exitOverride();
+      await program.parseAsync([
+        'node',
+        'lumen',
+        'create',
+        'fullstack-app',
+        '-y',
+        '-t',
+        'next-ts',
+        '--db',
+        'prisma',
+        '--db-provider',
+        'supabase',
+        '--docker',
+        '--route-groups',
+        '--agent-docs',
+      ]);
+
+      expect(runScaffolderSpy).toHaveBeenCalledTimes(1);
+      const callArgs = runScaffolderSpy.mock.calls[0][0];
+      expect(callArgs).toContain('fullstack-app');
+      expect(callArgs).toContain('--yes');
+      expect(callArgs).toContain('--template');
+      expect(callArgs).toContain('next-ts');
+      // When db/docker/route-groups are passed, an inline manifest is generated
+      const manifestIndex = callArgs.indexOf('--manifest');
+      expect(manifestIndex).toBeGreaterThan(-1);
+      const parsed = JSON.parse(callArgs[manifestIndex + 1]);
+      expect(parsed.database.orm).toBe('prisma');
+      expect(parsed.database.provider).toBe('supabase');
+      expect(parsed.docker).toBe(true);
+      expect(parsed.routeGroups).toBe(true);
+      expect(parsed.agentDocs).toBe(true);
+    });
+
+    it('forwards --state in lumen init', async () => {
+      const program = createCli().exitOverride();
+      await program.parseAsync([
+        'node',
+        'lumen',
+        'init',
+        '-y',
+        '--state',
+        'redux',
+      ]);
+
+      expect(runScaffolderSpy).toHaveBeenCalledTimes(1);
+      const callArgs = runScaffolderSpy.mock.calls[0][0];
+      expect(callArgs).toContain('--yes');
+      expect(callArgs).toContain('--state');
+      expect(callArgs[callArgs.indexOf('--state') + 1]).toBe('redux');
+    });
   });
 });
