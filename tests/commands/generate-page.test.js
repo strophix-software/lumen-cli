@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { loadValidFixtures } from 'create-lumen/schema/fixtures/index.js';
 import { createCli } from '../../src/cli.js';
-import { findRouterFile } from '../../src/commands/generate/page.js';
+import { findRouterFile, normalizeRouteGroup, discoverRouteGroups } from '../../src/commands/generate/page.js';
 import { LumenError } from '../../src/errors.js';
 
 describe('lumen g page command', () => {
@@ -454,6 +454,144 @@ describe('lumen g page command', () => {
       // 4. Not found
       fs.unlinkSync(srcRouter);
       expect(findRouterFile(subDir, tmpDir)).toBeNull();
+    });
+  });
+
+  describe('Next.js App Router Route Groups (--group) (#65)', () => {
+    it('normalizes and validates route group names', () => {
+      expect(normalizeRouteGroup('auth')).toBe('auth');
+      expect(normalizeRouteGroup('(auth)')).toBe('auth');
+      expect(normalizeRouteGroup('(public-area)')).toBe('public-area');
+      expect(normalizeRouteGroup('admin_v2')).toBe('admin_v2');
+
+      expect(() => normalizeRouteGroup('')).toThrow(LumenError);
+      expect(() => normalizeRouteGroup('   ')).toThrow(LumenError);
+      expect(() => normalizeRouteGroup('../bad')).toThrow(LumenError);
+      expect(() => normalizeRouteGroup('invalid group!')).toThrow(LumenError);
+    });
+
+    it('discovers route groups in the pages directory', () => {
+      const appDir = path.join(tmpDir, 'src/app');
+      fs.mkdirSync(path.join(appDir, '(public)'), { recursive: true });
+      fs.mkdirSync(path.join(appDir, '(auth)'), { recursive: true });
+      fs.mkdirSync(path.join(appDir, 'api'), { recursive: true }); // not a group
+      fs.mkdirSync(path.join(appDir, 'dashboard'), { recursive: true }); // not a group
+
+      const groups = discoverRouteGroups(appDir);
+      expect(groups).toEqual(['auth', 'public']);
+    });
+
+    it('scaffolds a page inside a route group with --group <name>', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'login', '--group', 'auth']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(auth)/login/page.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      const content = fs.readFileSync(expectedFile, 'utf8');
+      expect(content).toContain('export function LoginPage()');
+      expect(content).toContain('data-testid="login-page"');
+      expect(stdoutOutput).toContain('Route ready: /login');
+    });
+
+    it('scaffolds group root page when name is root or index with --group', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'root', '--group', 'public']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(public)/page.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      const content = fs.readFileSync(expectedFile, 'utf8');
+      expect(content).toContain('export function PublicPage()');
+      expect(stdoutOutput).toContain('Route ready: /');
+    });
+
+    it('does not duplicate route group if name already contains identical group', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', '(auth)/register', '--group', '(auth)']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(auth)/register/page.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src/app/(auth)/(auth)'))).toBe(false);
+    });
+
+    it('throws LumenError when name and --group have conflicting route groups', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(fixture.manifest, null, 2));
+
+      const program = createCli();
+      await expect(
+        program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', '(public)/catalog', '--group', 'auth'])
+      ).rejects.toThrow(/Conflicting route groups/);
+    });
+
+    it('throws LumenError when --group is used with React Vite or Pages Router', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'react');
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(fixture.manifest, null, 2));
+
+      const program = createCli();
+      await expect(
+        program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'dashboard', '--group', 'auth'])
+      ).rejects.toThrow(/Route groups are only supported in Next.js App Router/);
+    });
+
+    it('displays detected route groups hint when groups exist in src/app', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+      fs.mkdirSync(path.join(tmpDir, 'src/app/(public)'), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, 'src/app/(auth)'), { recursive: true });
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'checkout']);
+
+      expect(stdoutOutput).toContain('Route groups detected in project: (auth), (public)');
     });
   });
 });

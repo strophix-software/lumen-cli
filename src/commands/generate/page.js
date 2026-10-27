@@ -111,6 +111,50 @@ export function parseRouteInput(input) {
 }
 
 /**
+ * Normalizes and validates a route group name (e.g. "auth" or "(auth)").
+ *
+ * @param {string} group
+ * @returns {string} Clean route group name without enclosing parentheses
+ */
+export function normalizeRouteGroup(group) {
+  if (!group || typeof group !== 'string') {
+    throw new LumenError('Route group name cannot be empty.', {
+      code: EXIT.USER,
+      hint: 'Provide a valid route group identifier, e.g. "auth", "public", or "dashboard".',
+    });
+  }
+
+  const cleanGroup = group.trim().replace(/^\(|\)$/g, '');
+  if (!cleanGroup || !/^[a-zA-Z0-9_-]+$/.test(cleanGroup)) {
+    throw new LumenError(`Invalid route group "${group}". Route groups must be alphanumeric identifiers.`, {
+      code: EXIT.USER,
+      hint: 'Route groups should only contain alphanumeric characters, hyphens, or underscores (e.g. "auth", "public", "dashboard").',
+    });
+  }
+
+  return cleanGroup;
+}
+
+/**
+ * Discovers top-level Next.js route groups in the pages directory (e.g. (public), (auth)).
+ *
+ * @param {string} pagesDir
+ * @returns {string[]} Discovered group names without parentheses
+ */
+export function discoverRouteGroups(pagesDir) {
+  if (!pagesDir || !fs.existsSync(pagesDir)) return [];
+  try {
+    const entries = fs.readdirSync(pagesDir, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isDirectory() && /^\([a-zA-Z0-9_-]+\)$/.test(entry.name))
+      .map((entry) => entry.name.slice(1, -1))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Searches for a router file under the pages directory, its parent directories, or project src.
  * @param {string} pagesDir Absolute path to pages directory
  * @param {string} [root] Absolute path to project root
@@ -280,6 +324,12 @@ export default ${routeInfo.componentName};
       skipped: action === 'skip' ? [relFilePath] : [],
       plan: [{ action, file: relFilePath }],
     };
+    if (isAppRouter) {
+      const discovered = discoverRouteGroups(path.resolve(root, paths.pages));
+      if (discovered.length > 0) {
+        jsonOutput.routeGroups = discovered;
+      }
+    }
     process.stdout.write(JSON.stringify(jsonOutput, null, 2) + '\n');
   } else {
     if (options.dryRun) {
@@ -294,6 +344,13 @@ export default ${routeInfo.componentName};
 
     const routerType = isAppRouter ? 'App Router' : 'Pages Router';
     process.stdout.write(`\nRoute ready: ${routeInfo.routeUrl} (Next.js ${routerType} file-system routing)\n`);
+
+    if (isAppRouter && !options.group && !name.startsWith('(')) {
+      const discovered = discoverRouteGroups(path.resolve(root, paths.pages));
+      if (manifest?.routeGroups || discovered.length > 0) {
+        process.stdout.write(`  ℹ Route groups detected in project: ${discovered.map((g) => `(${g})`).join(', ')}. Use --group <name> to place this inside a group.\n`);
+      }
+    }
   }
 
   return {
@@ -318,6 +375,7 @@ export function registerPage(generate) {
     .command('page <name>')
     .alias('p')
     .description('Scaffold a route page for React + Vite or Next.js')
+    .option('-g, --group <name>', 'target route group for Next.js App Router (e.g. "auth", "public")')
     .option('--dry-run', 'preview file operations without writing to disk')
     .option('--force', 'overwrite existing files')
     .option('--client', 'mark page component with "use client" directive (Next.js App Router)')
@@ -327,6 +385,8 @@ export function registerPage(generate) {
       `
 Examples:
   $ lumen generate page settings
+  $ lumen g page catalog --group public
+  $ lumen g page login --group auth
   $ lumen g page "(public)/catalog"
   $ lumen g page "items/[id]"
   $ lumen g page dashboard --client
@@ -352,9 +412,42 @@ Examples:
         );
       }
 
+      const isAppRouter = manifest?.framework?.name === 'next' && manifest?.framework?.variant !== 'pages-router';
+
+      let routeName = name;
+      if (options.group) {
+        if (!isAppRouter) {
+          throw new LumenError('Route groups are only supported in Next.js App Router projects.', {
+            code: EXIT.USER,
+            hint: 'Route groups "(group)" are an App Router feature and cannot be used with React Vite or Next.js Pages Router.',
+          });
+        }
+
+        const cleanGroup = normalizeRouteGroup(options.group);
+        const existingMatch = routeName.match(/^\(([^)]+)\)/);
+        if (existingMatch) {
+          if (existingMatch[1] !== cleanGroup) {
+            throw new LumenError(
+              `Conflicting route groups: path contains "(${existingMatch[1]})" but --group specifies "${cleanGroup}".`,
+              {
+                code: EXIT.USER,
+                hint: 'Use either --group or include the group in the path, but do not specify conflicting groups.',
+              }
+            );
+          }
+        } else {
+          const trimmed = routeName.trim().replace(/^\/+/, '');
+          if (!trimmed || trimmed === '.' || trimmed === 'root' || trimmed === 'index') {
+            routeName = `(${cleanGroup})`;
+          } else {
+            routeName = `(${cleanGroup})/${trimmed}`;
+          }
+        }
+      }
+
       // Next.js App Router / Pages Router generation
       if (manifest?.framework?.name === 'next') {
-        return await generateNextPage({ name, options, manifest, paths, root });
+        return await generateNextPage({ name: routeName, options, manifest, paths, root });
       }
 
       const variants = buildNameVariants(name);

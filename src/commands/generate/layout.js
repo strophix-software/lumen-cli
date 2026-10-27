@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readConfig } from '../../config/index.js';
 import { LumenError, EXIT } from '../../errors.js';
 import { syncAgentContext } from '../../generators/core.js';
-import { parseRouteInput } from './page.js';
+import { parseRouteInput, normalizeRouteGroup, discoverRouteGroups } from './page.js';
 
 /**
  * Derives layout details from parsed route info.
@@ -39,9 +39,10 @@ export function parseLayoutInput(name) {
  */
 export function registerLayout(generate) {
   generate
-    .command('layout <name>')
+    .command('layout [name]')
     .alias('l')
     .description('Scaffold a layout component for Next.js App Router or React')
+    .option('-g, --group <name>', 'target route group for Next.js App Router (e.g. "auth", "public")')
     .option('--dry-run', 'preview file operations without writing to disk')
     .option('--force', 'overwrite existing files')
     .option('--client', 'mark layout component with "use client" directive')
@@ -49,8 +50,10 @@ export function registerLayout(generate) {
       'after',
       `
 Examples:
-  $ lumen generate layout "(public)"
-  $ lumen g layout "(auth)"
+  $ lumen generate layout --group public
+  $ lumen g layout --group auth
+  $ lumen g layout dashboard --group auth
+  $ lumen g layout "(public)"
   $ lumen g layout admin
   $ lumen g layout root
   $ lumen g layout dashboard --client
@@ -64,10 +67,42 @@ Examples:
       const { manifest, paths, root } = readConfig({ cwd });
 
       const isNext = manifest?.framework?.name === 'next';
+      const isAppRouter = isNext && manifest?.framework?.variant !== 'pages-router';
       const language = options.language || manifest?.tooling?.language || 'ts';
       const ext = language === 'ts' ? 'tsx' : 'jsx';
 
-      const layoutInfo = parseLayoutInput(name);
+      let targetName = (name || '').trim();
+
+      if (options.group) {
+        if (!isAppRouter) {
+          throw new LumenError('Route groups are only supported in Next.js App Router projects.', {
+            code: EXIT.USER,
+            hint: 'Route groups "(group)" are an App Router feature and cannot be used with React Vite or Next.js Pages Router.',
+          });
+        }
+
+        const cleanGroup = normalizeRouteGroup(options.group);
+        const existingMatch = targetName.match(/^\(([^)]+)\)/);
+        if (existingMatch) {
+          if (existingMatch[1] !== cleanGroup) {
+            throw new LumenError(
+              `Conflicting route groups: layout name contains "(${existingMatch[1]})" but --group specifies "${cleanGroup}".`,
+              {
+                code: EXIT.USER,
+                hint: 'Use either --group or include the group in the name, but do not specify conflicting groups.',
+              }
+            );
+          }
+        } else if (!targetName || targetName === '.' || targetName === '/' || targetName === 'root') {
+          targetName = `(${cleanGroup})`;
+        } else {
+          targetName = `(${cleanGroup})/${targetName.replace(/^\/+/, '')}`;
+        }
+      } else if (!targetName) {
+        targetName = 'root';
+      }
+
+      const layoutInfo = parseLayoutInput(targetName);
 
       let relFilePath;
       if (isNext) {
@@ -148,11 +183,17 @@ export default ${layoutInfo.componentName};
         const jsonOutput = {
           success: true,
           kind: 'layout',
-          name,
+          name: targetName,
           created: action === 'create' || action === 'overwrite' ? [relFilePath] : [],
           skipped: action === 'skip' ? [relFilePath] : [],
           plan: [{ action, file: relFilePath }],
         };
+        if (isAppRouter) {
+          const discovered = discoverRouteGroups(path.resolve(root, paths.pages));
+          if (discovered.length > 0) {
+            jsonOutput.routeGroups = discovered;
+          }
+        }
         process.stdout.write(JSON.stringify(jsonOutput, null, 2) + '\n');
       } else {
         if (options.dryRun) {
@@ -170,12 +211,19 @@ export default ${layoutInfo.componentName};
         } else {
           process.stdout.write(`\nLayout ready: ${relFilePath}\n`);
         }
+
+        if (isAppRouter && !options.group && !targetName.startsWith('(')) {
+          const discovered = discoverRouteGroups(path.resolve(root, paths.pages));
+          if (manifest?.routeGroups || discovered.length > 0) {
+            process.stdout.write(`  ℹ Route groups detected in project: ${discovered.map((g) => `(${g})`).join(', ')}. Use --group <name> to place this layout in a route group.\n`);
+          }
+        }
       }
 
       return {
         success: true,
         kind: 'layout',
-        name,
+        name: targetName,
         created: action === 'create' || action === 'overwrite' ? [relFilePath] : [],
         skipped: action === 'skip' ? [relFilePath] : [],
         plan: [{ action, file: relFilePath }],
