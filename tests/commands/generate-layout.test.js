@@ -229,4 +229,118 @@ describe('lumen g layout command (#54)', () => {
     // Verify no double-prefixing
     expect(fs.existsSync(path.join(tmpDir, 'src/src/app'))).toBe(false);
   });
+
+  describe('Next.js App Router Route Groups (--group) (#65)', () => {
+    it('scaffolds a route group layout with --group <name>', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...nextFixture.manifest,
+        paths: {
+          ...nextFixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', '--group', 'auth']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(auth)/layout.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      const content = fs.readFileSync(expectedFile, 'utf8');
+      expect(content).toContain('export function AuthLayout');
+      expect(content).toContain('data-testid="auth-layout"');
+      expect(stdoutOutput).toContain('Layout ready:');
+    });
+
+    it('scaffolds a nested layout inside a route group with --group <name>', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...nextFixture.manifest,
+        paths: {
+          ...nextFixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', 'settings', '--group', 'dashboard']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(dashboard)/settings/layout.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      const content = fs.readFileSync(expectedFile, 'utf8');
+      expect(content).toContain('export function SettingsLayout');
+      expect(content).toContain('data-testid="settings-layout"');
+    });
+
+    it('does not duplicate route group if layout name already has identical group', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...nextFixture.manifest,
+        paths: {
+          ...nextFixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', '(public)', '--group', '(public)']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/(public)/layout.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src/app/(public)/(public)'))).toBe(false);
+    });
+
+    it('throws LumenError when layout name and --group have conflicting route groups', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(nextFixture.manifest, null, 2));
+
+      const program = createCli();
+      await expect(
+        program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', '(public)', '--group', 'auth'])
+      ).rejects.toThrow(/Conflicting route groups/);
+    });
+
+    it('throws LumenError when --group is used with React Vite or Pages Router', async () => {
+      const fixtures = await loadValidFixtures();
+      const reactFixture = fixtures.find((f) => f.manifest.framework?.name === 'react');
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(reactFixture.manifest, null, 2));
+
+      const program = createCli();
+      await expect(
+        program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', '--group', 'auth'])
+      ).rejects.toThrow(/Route groups are only supported in Next.js App Router/);
+    });
+
+    it('displays detected route groups hint when groups exist in src/app', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...nextFixture.manifest,
+        paths: {
+          ...nextFixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+      fs.mkdirSync(path.join(tmpDir, 'src/app/(public)'), { recursive: true });
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', 'account']);
+
+      expect(stdoutOutput).toContain('Route groups detected in project: (public)');
+    });
+  });
 });
