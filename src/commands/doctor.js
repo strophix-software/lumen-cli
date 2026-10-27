@@ -135,11 +135,24 @@ export function runDoctor(options = {}) {
     const hasBiomeConfig =
       fs.existsSync(path.join(root, 'biome.json')) || fs.existsSync(path.join(root, 'biome.jsonc'));
     if (hasBiomeConfig) {
+      let biomeMessage = 'Biome configuration found (handles formatting & linting unified)';
+      try {
+        const biomeConfigPath = fs.existsSync(path.join(root, 'biome.json'))
+          ? path.join(root, 'biome.json')
+          : path.join(root, 'biome.jsonc');
+        const content = fs.readFileSync(biomeConfigPath, 'utf8');
+        const parsed = JSON.parse(content);
+        if (parsed?.css?.parser?.tailwindDirectives) {
+          biomeMessage = 'Biome v2 configuration verified with Tailwind CSS directives support';
+        }
+      } catch {
+        // ignore parse error for message enhancement
+      }
       checks.push({
         category: 'tooling',
         name: 'Biome v2',
         status: 'pass',
-        message: 'Biome configuration found (handles formatting & linting unified)',
+        message: biomeMessage,
       });
     } else {
       warnings.push('Biome linter specified in manifest but biome.json / biome.jsonc was not found.');

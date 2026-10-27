@@ -226,7 +226,7 @@ datasource db {
       expect(report.warnings.some((w) => w.includes('DIRECT_URL is not set'))).toBe(true);
     });
 
-    it('detects Biome v2 unified configuration', async () => {
+    it('detects Biome v2 unified configuration and Tailwind CSS directives', async () => {
       const fixtures = await loadValidFixtures();
       const fixture = fixtures[0];
       const manifestWithBiome = {
@@ -239,10 +239,36 @@ datasource db {
       };
 
       fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifestWithBiome, null, 2));
-      fs.writeFileSync(path.join(tmpDir, 'biome.json'), '{"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json"}\n', 'utf8');
+      fs.writeFileSync(
+        path.join(tmpDir, 'biome.json'),
+        JSON.stringify({
+          $schema: 'https://biomejs.dev/schemas/1.9.4/schema.json',
+          css: {
+            parser: {
+              tailwindDirectives: true,
+            },
+          },
+        }),
+        'utf8'
+      );
 
       const report = runDoctor({ cwd: tmpDir });
-      expect(report.checks.some((c) => c.name === 'Biome v2' && c.status === 'pass')).toBe(true);
+      expect(
+        report.checks.some(
+          (c) =>
+            c.name === 'Biome v2' &&
+            c.status === 'pass' &&
+            c.message.includes('Tailwind CSS directives support')
+        )
+      ).toBe(true);
+      expect(
+        report.checks.some(
+          (c) =>
+            c.name === 'Formatter' &&
+            c.status === 'pass' &&
+            c.message.includes('delegated to Biome v2 unified')
+        )
+      ).toBe(true);
     });
 
     it('warns when legacy .lumen directory is detected', async () => {
