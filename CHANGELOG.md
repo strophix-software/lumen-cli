@@ -7,19 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-alpha.1] — 2026-10-27
+
 ### Added
 
-- **`lumen config`** (#4, #36) — `config`, `config get <path>`, `config validate`; `ConfigError` now extends `LumenError`.
-- **`lumen create` / `lumen init`** (#5, #37) — delegate to `create-lumen@2` with inherited stdio and signal forwarding.
-- **Tooling flags** (#6, #40) — `--linter/--formatter/--language/--styling/--ui` validated against create-lumen enums and sent as an inline manifest.
+- **`lumen sync-barrels`** (#21) — auto-maintain intermediate `index.ts` / `index.js` barrels with bottom-up traversal, deterministic sorting, `@barrel-ignore` pragma, `--check` CI gate, and `--dry-run`.
+- **`lumen g component`** (#64) — generate modular components with `--feature`, `--client`, `--type <standard|compound|client>`, `--compound`, and `--test`.
+- **Route groups support** (#65) — `lumen g page` and `lumen g layout` support Next.js App Router route groups via `--group <name>` (or inline `(group)` paths).
+- **Prisma ORM & Supabase DAL support** (#61) — server-side domain service scaffolding via `lumen g service --server`, database connection string audit (Supabase pooler port 6543 vs direct 5432) in `lumen doctor`, and `lumen db` commands (`push`, `migrate`, `seed`, `studio`, `generate`).
+- **Modern Biome v2 & `--formatter none`** (#67) — unified linting and formatting support without separate Prettier dependency.
+- **UI Registry & Theme tokens** (#10) — `@lumen` component registry with `@shadcn` fallback, peer dependency resolution, and Tailwind v4 theme presets (`lumen g ui theme-<name>`).
+- **`lumen config`** (#4, #36) — `config`, `config get <path>`, `config validate`; `ConfigError` extends `LumenError`.
+- **`lumen create` / `lumen init`** (#5, #37) — delegate to `create-lumen@^2.0.0-beta.3` with inherited stdio and signal forwarding.
+- **Tooling flags** (#6, #40) — `--linter/--formatter/--language/--styling/--ui` validated against manifest schema enums.
 - **Generator core** (#7, #38) — template engine, name variants, manifest-path targets, `--dry-run`/`--force`, containment checks.
 - **Generators** — `g feature` (#8), `g page` (#11), `g service` (#12), `g store` (#13), `g form` (#14).
-
 - **Command framework** (#2, #34) — global flags `-c/--cwd`, `-v/--verbose`, `-j/--json`, `--no-color`; `generate`/`g` command; unknown-command suggestions; `LumenError` and documented exit codes (0/1/2/70).
-- **Config reader** (#3, #28, #29, #33) — finds `lumen.config.json` upward, rejects v1 manifests with a migration pointer, normalises manifest v2.1 (`preset`, `validation`, `harness`, `agentDocs`), resolves paths through `create-lumen`; drift gate runs all shared `create-lumen@2.0.0-alpha.2` fixtures.
+- **Config reader** (#3, #28, #29, #33) — finds `lumen.config.json` upward, rejects v1 manifests with a migration pointer, normalises manifest v2.1 (`preset`, `validation`, `harness`, `agentDocs`), resolves paths through `create-lumen`; drift gate runs shared fixtures.
 
 ### Changed
 
+- **Bump `create-lumen` dependency to `^2.0.0-beta.3`** (#70, #71).
+- **Support canonical `paths.pages` (`src/app` / `src/pages`)** (#69).
+- **Purge legacy `hybrid` architecture** (#62).
+- **Deprecate `.lumen/` in favor of root `AGENTS.md` and `lumen.config.json`** (#63).
+- **Docs: comprehensive README and command reference** (#22) — complete command and generator reference, global flags, `lm` alias, and author credit to Moisés Cantillo (@moicanbas) for `documentador`.
 - **Docs: branch workflow aligned with `create-lumen`** — `develop` canonical, `release/<version>` freeze + tag, back-merge PR to `develop`; prereleases are numbered (`1.0.0-alpha.1`); ROADMAP/PLAN/BRANCHING synced with `create-lumen@2.0.0-alpha.2` (manifest v2.1).
 
 ## [1.0.0-alpha.0] — 2026-09-19
