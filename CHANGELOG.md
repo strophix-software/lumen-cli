@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-alpha.2] — 2026-10-27
+
+### Changed
+
+- **Bump `create-lumen` dependency to `^2.0.0-beta.4`** (#85) — incorporates out-of-the-box `prisma generate` postinstall, cleanup of default Next.js `page.module.css`, and canonical placement of `globals.css` in `src/app`.
+- **Binaries execution permissions** — ensure `bin/lumen.js` has executable file mode (755).
+
 ## [1.0.0-alpha.1] — 2026-10-27
 
 ### Added
