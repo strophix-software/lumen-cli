@@ -240,7 +240,12 @@ export function resolveScaffolderOptions(options = {}, { cwd = process.cwd() } =
       uiKit: ui !== undefined ? ui : 'none',
       language: language !== undefined ? language : (preset.language || 'ts'),
       linter: linter !== undefined ? linter : (preset.linter || 'eslint'),
-      formatter: formatter !== undefined ? formatter : (preset.formatter || 'prettier'),
+      formatter:
+        formatter !== undefined
+          ? formatter
+          : (linter === 'biome' || preset.linter === 'biome'
+              ? 'none'
+              : (preset.formatter || 'prettier')),
       docsLanguage: preset.docsLanguage || 'en',
     };
 

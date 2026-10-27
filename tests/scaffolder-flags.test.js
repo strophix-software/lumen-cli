@@ -247,4 +247,36 @@ describe('architecture/framework combos (#51)', () => {
   it('accepts feature-based with next', () => {
     expect(() => validateScaffolderFlags({ arch: 'feature-based', framework: 'next' })).not.toThrow();
   });
+
+  describe('Biome v2 and --formatter none integration (#67)', () => {
+    it('accepts --formatter none in validateScaffolderFlags', () => {
+      expect(() => validateScaffolderFlags({ formatter: 'none' })).not.toThrow();
+      expect(() => validateScaffolderFlags({ linter: 'biome', formatter: 'none' })).not.toThrow();
+    });
+
+    it('defaults formatter to "none" when linter is "biome"', () => {
+      const result = resolveScaffolderOptions({
+        linter: 'biome',
+        template: 'react-ts',
+      });
+
+      expect(result.manifest).toBeDefined();
+      const manifest = JSON.parse(result.manifest);
+      expect(manifest.tooling.linter).toBe('biome');
+      expect(manifest.tooling.formatter).toBe('none');
+    });
+
+    it('preserves explicit --formatter none with any linter', () => {
+      const result = resolveScaffolderOptions({
+        linter: 'eslint',
+        formatter: 'none',
+        template: 'next-ts',
+      });
+
+      expect(result.manifest).toBeDefined();
+      const manifest = JSON.parse(result.manifest);
+      expect(manifest.tooling.linter).toBe('eslint');
+      expect(manifest.tooling.formatter).toBe('none');
+    });
+  });
 });
