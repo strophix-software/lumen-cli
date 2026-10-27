@@ -200,4 +200,33 @@ describe('lumen g layout command (#54)', () => {
     const content = fs.readFileSync(expectedPath, 'utf8');
     expect(content).toContain('export function AuthLayout');
   });
+
+  it('emits root and nested layouts into src/app without duplicate prefixes when paths.pages is "src/app" (#69)', async () => {
+    const fixtures = await loadValidFixtures();
+    const nextFixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+    const manifest = {
+      ...nextFixture.manifest,
+      paths: {
+        ...nextFixture.manifest.paths,
+        pages: 'src/app',
+      },
+    };
+
+    fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+    const program1 = createCli();
+    await program1.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', 'root']);
+
+    const rootLayout = path.join(tmpDir, 'src/app/layout.tsx');
+    expect(fs.existsSync(rootLayout)).toBe(true);
+
+    const program2 = createCli();
+    await program2.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'layout', 'dashboard']);
+
+    const nestedLayout = path.join(tmpDir, 'src/app/dashboard/layout.tsx');
+    expect(fs.existsSync(nestedLayout)).toBe(true);
+
+    // Verify no double-prefixing
+    expect(fs.existsSync(path.join(tmpDir, 'src/src/app'))).toBe(false);
+  });
 });

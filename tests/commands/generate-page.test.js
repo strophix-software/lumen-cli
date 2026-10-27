@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { loadValidFixtures } from 'create-lumen/schema/fixtures/index.js';
 import { createCli } from '../../src/cli.js';
+import { findRouterFile } from '../../src/commands/generate/page.js';
 import { LumenError } from '../../src/errors.js';
 
 describe('lumen g page command', () => {
@@ -362,5 +363,97 @@ describe('lumen g page command', () => {
       });
       expect(transpiled.outputText).toBeDefined();
     }
+  });
+
+  describe('manifest paths.pages canonical routing and findRouterFile (#69)', () => {
+    it('emits App Router page into src/app without duplicate prefixes when paths.pages is "src/app"', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'billing']);
+
+      const expectedFile = path.join(tmpDir, 'src/app/billing/page.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+
+      // Verify no double-prefixing or rogue root directories
+      expect(fs.existsSync(path.join(tmpDir, 'src/src/app'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, 'app/billing/page.tsx'))).toBe(false);
+    });
+
+    it('emits Pages Router page into src/pages without duplicate prefixes when paths.pages is "src/pages"', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        framework: { name: 'next', variant: 'pages-router' },
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'src/pages',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'about']);
+
+      const expectedFile = path.join(tmpDir, 'src/pages/about.tsx');
+      expect(fs.existsSync(expectedFile)).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src/src/pages'))).toBe(false);
+    });
+
+    it('supports legacy root "app" paths.pages without error', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next');
+      const manifest = {
+        ...fixture.manifest,
+        paths: {
+          ...fixture.manifest.paths,
+          pages: 'app',
+        },
+      };
+
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(manifest, null, 2));
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'contact']);
+
+      expect(fs.existsSync(path.join(tmpDir, 'app/contact/page.tsx'))).toBe(true);
+    });
+
+    it('findRouterFile discovers router in pagesDir, parent directory, and src', () => {
+      // 1. Direct inside pagesDir
+      const subDir = path.join(tmpDir, 'src/app/router');
+      fs.mkdirSync(subDir, { recursive: true });
+      const directRoute = path.join(subDir, 'routes.tsx');
+      fs.writeFileSync(directRoute, '// lumen:routes\n');
+      expect(findRouterFile(subDir, tmpDir)).toBe(directRoute);
+
+      // 2. In parent directory (src/app/App.tsx) when pagesDir has no router
+      fs.unlinkSync(directRoute);
+      const appFile = path.join(tmpDir, 'src/app/App.tsx');
+      fs.writeFileSync(appFile, '// lumen:routes in App\n');
+      expect(findRouterFile(subDir, tmpDir)).toBe(appFile);
+
+      // 3. In src/ (src/router.tsx)
+      fs.unlinkSync(appFile);
+      const srcRouter = path.join(tmpDir, 'src/router.tsx');
+      fs.writeFileSync(srcRouter, '// routes\n');
+      expect(findRouterFile(subDir, tmpDir)).toBe(srcRouter);
+
+      // 4. Not found
+      fs.unlinkSync(srcRouter);
+      expect(findRouterFile(subDir, tmpDir)).toBeNull();
+    });
   });
 });
