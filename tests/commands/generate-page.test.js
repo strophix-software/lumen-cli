@@ -593,5 +593,82 @@ describe('lumen g page command', () => {
 
       expect(stdoutOutput).toContain('Route groups detected in project: (auth), (public)');
     });
+
+    it('scaffolds a Next.js App Router page with async deferred promise pattern when --with-fetch is passed (#97)', async () => {
+      const fixtures = await loadValidFixtures();
+      const nextFixture = fixtures.find(
+        (f) =>
+          f.manifest.framework?.name === 'next' &&
+          f.manifest.framework?.variant !== 'pages-router' &&
+          f.manifest.tooling?.language === 'ts'
+      );
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(nextFixture.manifest, null, 2)
+      );
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'inventory', '--with-fetch']);
+
+      const pageFile = path.join(tmpDir, nextFixture.manifest.paths.pages, 'inventory', 'page.tsx');
+      expect(fs.existsSync(pageFile)).toBe(true);
+
+      const content = fs.readFileSync(pageFile, 'utf8');
+
+      // 1. Client directive required for useEffect
+      expect(content.startsWith("'use client';")).toBe(true);
+      expect(content).toContain("import { useState, useEffect } from 'react';");
+      expect(content).toContain('export function InventoryPage()');
+
+      // 2. Default loading is true
+      expect(content).toContain('const [loading, setLoading] = useState<boolean>(true);');
+
+      // 3. Cancel-guarded promise pattern
+      expect(content).toContain('let active = true;');
+      expect(content).toContain("fetch('/api/inventory')");
+      expect(content).toContain('if (active)');
+      expect(content).toContain('setLoading(false);');
+      expect(content).toContain('return () => {');
+      expect(content).toContain('active = false;');
+
+      // 4. Verify no synchronous setState in effect body
+      const effectMatch = content.match(/useEffect\(\(\) => \{([\s\S]*?)\}, \[\]\);/);
+      expect(effectMatch).not.toBeNull();
+      const effectBody = effectMatch[1];
+      const beforeFetch = effectBody.split('fetch(')[0];
+      expect(beforeFetch).not.toMatch(/setLoading\s*\(/);
+      expect(beforeFetch).not.toMatch(/setData\s*\(/);
+    });
+
+    it('scaffolds a React Vite page with async deferred promise pattern when --with-fetch is passed (#97)', async () => {
+      const fixtures = await loadValidFixtures();
+      const viteFixture = fixtures.find(
+        (f) =>
+          f.manifest.framework?.name === 'react' &&
+          f.manifest.tooling?.language === 'ts'
+      ) || fixtures[0];
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(viteFixture.manifest, null, 2)
+      );
+
+      const program = createCli();
+      await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'page', 'products', '--with-fetch']);
+
+      const pageFile = path.join(tmpDir, viteFixture.manifest.paths.pages, 'ProductsPage.tsx');
+      expect(fs.existsSync(pageFile)).toBe(true);
+
+      const content = fs.readFileSync(pageFile, 'utf8');
+      expect(content).toContain("import { useState, useEffect } from 'react';");
+      expect(content).toContain('export function ProductsPage()');
+      expect(content).toContain('const [loading, setLoading] = useState<boolean>(true);');
+      expect(content).toContain('let active = true;');
+      expect(content).toContain("fetch('/api/products')");
+      expect(content).toContain('if (active)');
+      expect(content).toContain('return () => {');
+      expect(content).toContain('active = false;');
+    });
   });
 });
