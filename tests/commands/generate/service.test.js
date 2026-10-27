@@ -395,5 +395,62 @@ describe('lumen generate service command', () => {
       expect(content).toContain('db.user.count()');
       expect(content).toContain('skip: (page - 1) * pageSize');
     });
+
+    it('automatically generates server DAL when manifest.database.orm is prisma (#61)', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next' && f.manifest.paths?.services) || fixtures[0];
+
+      const manifestWithPrisma = {
+        ...fixture.manifest,
+        database: {
+          orm: 'prisma',
+          provider: 'supabase',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(manifestWithPrisma, null, 2)
+      );
+
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'product']).finished;
+      expect(process.exitCode).toBeUndefined();
+
+      const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'product.service.ts');
+      expect(fs.existsSync(serviceFile)).toBe(true);
+
+      const content = fs.readFileSync(serviceFile, 'utf8');
+      expect(content).toContain("import { db } from '@/lib/db';");
+      expect(content).toContain('db.product.findMany()');
+      expect(content).not.toContain('fetch(');
+    });
+
+    it('forces client HTTP service when --client is passed even with prisma in manifest (#61)', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.manifest.framework?.name === 'next' && f.manifest.paths?.services) || fixtures[0];
+
+      const manifestWithPrisma = {
+        ...fixture.manifest,
+        database: {
+          orm: 'prisma',
+          provider: 'supabase',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(manifestWithPrisma, null, 2)
+      );
+
+      await runCli(['node', 'lumen', '-c', tmpDir, 'g', 'service', 'product', '--client']).finished;
+      expect(process.exitCode).toBeUndefined();
+
+      const serviceFile = path.join(tmpDir, fixture.manifest.paths.services, 'product.service.ts');
+      expect(fs.existsSync(serviceFile)).toBe(true);
+
+      const content = fs.readFileSync(serviceFile, 'utf8');
+      expect(content).not.toContain("import { db } from '@/lib/db';");
+      expect(content).toContain('fetch(');
+    });
   });
 });
