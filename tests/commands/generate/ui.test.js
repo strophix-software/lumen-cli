@@ -8,6 +8,7 @@ import {
   registerUi,
   executeGenerateUi,
   resolveUiComponent,
+  resolveRegistryDependencyTree,
   fetchLumenRegistry,
   fetchShadcnRegistry,
   fetchFromRegistryUrl,
@@ -1247,6 +1248,264 @@ describe('lumen generate ui command', () => {
       await executeGenerateUi(undefined, { cwd: tmpDir, list: true });
       expect(stdoutOutput).toContain('(from components.json)');
       expect(stdoutOutput).toContain(customUrl);
+    });
+  });
+
+  describe('Registry resolution hierarchy, fallback notices, and recursive dependencies', () => {
+    it('resolves 1st degree by default from Lumen Registry without fallback metadata', async () => {
+      const resolved = await resolveUiComponent('data-table');
+      expect(resolved.source).toBe('lumen');
+      expect(resolved.scope).toBe('@lumen');
+      expect(resolved.degree).toBe(1);
+      expect(resolved.fallback).toBeNull();
+    });
+
+    it('resolves 2nd degree transparently with contingency notice for Shadcn base primitives', async () => {
+      const resolved = await resolveUiComponent('button');
+      expect(resolved.source).toBe('shadcn');
+      expect(resolved.scope).toBe('@shadcn');
+      expect(resolved.degree).toBe(2);
+      expect(resolved.fallback).toEqual({
+        active: true,
+        degree: 2,
+        from: 'lumen',
+        to: 'shadcn',
+        message: 'Component "button" was not found in Lumen Registry. Using Shadcn UI fallback as contingency.',
+      });
+    });
+
+    it('resolves 3rd degree fallback to other registries in components.json with warning notice', async () => {
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.includes('acme-ui.dev')) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'fancy-banner',
+              type: 'block',
+              dependencies: ['clsx'],
+              files: [
+                {
+                  path: 'FancyBanner.tsx',
+                  contentTs: 'export function FancyBanner() { return <div>Banner</div>; }',
+                },
+              ],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      const componentsConfig = {
+        registries: {
+          '@acme': 'https://acme-ui.dev/r',
+        },
+      };
+
+      const resolved = await resolveUiComponent('fancy-banner', {
+        fetch: mockFetch,
+        componentsConfig,
+      });
+
+      expect(resolved.source).toBe('@acme');
+      expect(resolved.scope).toBe('@acme');
+      expect(resolved.degree).toBe(3);
+      expect(resolved.fallback).toEqual({
+        active: true,
+        degree: 3,
+        from: 'lumen/shadcn',
+        to: '@acme',
+        message: 'Component "fancy-banner" resolved from third-party registry "@acme".',
+      });
+    });
+
+    it('respects explicit scoped pattern without degree fallback', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({ status: 404, ok: false });
+      const componentsConfig = {
+        registries: {
+          '@acme': 'https://acme-ui.dev/r',
+        },
+      };
+
+      // Explicit @acme/button should NOT fall back to Shadcn button
+      await expect(
+        resolveUiComponent('@acme/button', {
+          fetch: mockFetch,
+          componentsConfig,
+        })
+      ).rejects.toThrow(LumenError);
+
+      await expect(
+        resolveUiComponent('@acme/button', {
+          fetch: mockFetch,
+          componentsConfig,
+        })
+      ).rejects.toThrow(/Component "button" was not found in registry "@acme"/);
+    });
+
+    it('prints informational notice on 2nd-degree fallback in human output', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(fixture.manifest, null, 2));
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2));
+
+      stdoutOutput = '';
+      await executeGenerateUi('button', { cwd: tmpDir });
+      expect(stdoutOutput).toContain('ℹ Notice: Component "button" was not found in Lumen Registry. Using Shadcn UI fallback as contingency.');
+      expect(stdoutOutput).not.toContain('⚠ Warning:');
+    });
+
+    it('prints warning notice on 3rd-degree fallback in human output', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(fixture.manifest, null, 2));
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2));
+
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.includes('third-party.dev')) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'notification-badge',
+              type: 'primitive',
+              dependencies: ['clsx'],
+              files: [
+                {
+                  path: 'NotificationBadge.tsx',
+                  contentTs: 'export function NotificationBadge() { return <span>badge</span>; }',
+                },
+              ],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      fs.writeFileSync(
+        path.join(tmpDir, 'components.json'),
+        JSON.stringify(
+          {
+            registries: {
+              '@third-party': 'https://third-party.dev/r',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      stdoutOutput = '';
+      await executeGenerateUi('notification-badge', { cwd: tmpDir, fetch: mockFetch });
+      expect(stdoutOutput).toContain('⚠ Warning: Component "notification-badge" resolved from third-party registry "@third-party".');
+      expect(stdoutOutput).not.toContain('ℹ Notice:');
+    });
+
+    it('resolves recursive registry dependencies tree', async () => {
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.includes('hero-banner')) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'hero-banner',
+              registryDependencies: ['button', '@acme/card'],
+              files: [{ path: 'HeroBanner.tsx', contentTs: 'export const Hero = () => null;' }],
+            }),
+          };
+        }
+        if (url.includes('card')) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'card',
+              scope: '@acme',
+              registryDependencies: ['button'],
+              files: [{ path: 'Card.tsx', contentTs: 'export const Card = () => null;' }],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      const componentsConfig = {
+        registries: {
+          '@acme': 'https://acme.org/r',
+        },
+      };
+
+      const rootComponent = {
+        name: 'hero-banner',
+        scope: '@lumen',
+        source: 'lumen',
+        registryDependencies: ['button', '@acme/card'],
+        files: [{ path: 'HeroBanner.tsx', contentTs: 'export const Hero = () => null;' }],
+      };
+
+      const tree = await resolveRegistryDependencyTree(rootComponent, {
+        fetch: mockFetch,
+        componentsConfig,
+      });
+
+      const names = tree.map((c) => c.name);
+      expect(names).toEqual(['hero-banner', 'button', 'card']);
+      expect(tree.find((c) => c.name === 'button').source).toBe('shadcn');
+      expect(tree.find((c) => c.name === 'card').source).toBe('@acme');
+    });
+
+    it('generates all recursive dependency files and updates index barrel in executeGenerateUi', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      fs.writeFileSync(path.join(tmpDir, 'lumen.config.json'), JSON.stringify(fixture.manifest, null, 2));
+      fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-app', dependencies: {} }, null, 2));
+
+      const mockFetch = vi.fn().mockImplementation(async (url) => {
+        if (url.includes('stats-view')) {
+          return {
+            status: 200,
+            ok: true,
+            json: async () => ({
+              name: 'stats-view',
+              type: 'block',
+              registryDependencies: ['button'],
+              dependencies: ['recharts'],
+              files: [
+                {
+                  path: 'StatsView.tsx',
+                  contentTs: 'import { Button } from "./Button";\nexport function StatsView() { return <Button />; }',
+                },
+              ],
+            }),
+          };
+        }
+        return { status: 404, ok: false };
+      });
+
+      const result = await executeGenerateUi('stats-view', {
+        cwd: tmpDir,
+        fetch: mockFetch,
+        json: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.name).toBe('stats-view');
+      expect(result.registryDependencies).toHaveLength(1);
+      expect(result.registryDependencies[0].name).toBe('button');
+      expect(result.registryDependencies[0].source).toBe('shadcn');
+
+      // Both components generated on disk
+      const statsViewFile = path.join(tmpDir, fixture.manifest.paths.ui, 'StatsView.tsx');
+      const buttonFile = path.join(tmpDir, fixture.manifest.paths.ui, 'Button.tsx');
+      const indexFile = path.join(tmpDir, fixture.manifest.paths.ui, 'index.ts');
+
+      expect(fs.existsSync(statsViewFile)).toBe(true);
+      expect(fs.existsSync(buttonFile)).toBe(true);
+      expect(fs.existsSync(indexFile)).toBe(true);
+
+      const indexContent = fs.readFileSync(indexFile, 'utf8');
+      expect(indexContent).toContain("export * from './StatsView';");
+      expect(indexContent).toContain("export * from './Button';");
     });
   });
 });
