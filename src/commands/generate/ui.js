@@ -1970,7 +1970,7 @@ export async function fetchLumenRegistry(name, options = {}) {
     return null;
   }
 
-  // For unknown components without custom fetch, attempt fast remote query
+  // Attempt remote query against Lumen Registry
   if (!hasCustomFetch && !hasCustomUrl && globalThis.fetch) {
     const baseUrl = DEFAULT_LUMEN_REGISTRY_URL;
     const remote = await fetchFromRegistryUrl(baseUrl, name, { ...options, timeout: options.timeout || 500 });
@@ -2051,7 +2051,7 @@ export async function resolveUiComponent(name, options = {}) {
   const root = options.cwd || process.cwd();
   const componentsConfig = options.componentsConfig || readComponentsJson(root);
 
-  // Scoped request
+  // 1. Scoped request (Explicitly specified registry)
   if (scope) {
     if (scope === '@lumen' || scope === 'lumen') {
       const lumenComponent = await fetchLumenRegistry(normalized, { ...options, componentsConfig });
@@ -2061,6 +2061,8 @@ export async function resolveUiComponent(name, options = {}) {
           source: 'lumen',
           name: normalized,
           scope: '@lumen',
+          degree: 1,
+          fallback: null,
         };
       }
     } else if (scope === '@shadcn' || scope === 'shadcn') {
@@ -2071,6 +2073,8 @@ export async function resolveUiComponent(name, options = {}) {
           source: 'shadcn',
           name: normalized,
           scope: '@shadcn',
+          degree: 1,
+          fallback: null,
         };
       }
     } else {
@@ -2098,6 +2102,8 @@ export async function resolveUiComponent(name, options = {}) {
           source: scope,
           name: normalized,
           scope,
+          degree: 1,
+          fallback: null,
         };
       }
     }
@@ -2111,29 +2117,41 @@ export async function resolveUiComponent(name, options = {}) {
     );
   }
 
-  // Unscoped: 1. Try Lumen Registry
+  // 2. Unscoped request (Resolution by degrees):
+
+  // 1st Degree: Lumen Registry (@lumen)
   const lumenComponent = await fetchLumenRegistry(normalized, { ...options, componentsConfig });
   if (lumenComponent) {
     return {
       ...lumenComponent,
       source: 'lumen',
       name: normalized,
-      scope: null,
+      scope: '@lumen',
+      degree: 1,
+      fallback: null,
     };
   }
 
-  // Unscoped: 2. Try Shadcn fallback
+  // 2nd Degree: Contingency fallback in Shadcn UI (@shadcn)
   const shadcnComponent = await fetchShadcnRegistry(normalized, { ...options, componentsConfig });
   if (shadcnComponent) {
     return {
       ...shadcnComponent,
       source: 'shadcn',
       name: normalized,
-      scope: null,
+      scope: '@shadcn',
+      degree: 2,
+      fallback: {
+        active: true,
+        degree: 2,
+        from: 'lumen',
+        to: 'shadcn',
+        message: `Component "${normalized}" was not found in Lumen Registry. Using Shadcn UI fallback as contingency.`,
+      },
     };
   }
 
-  // Unscoped: 3. Try any custom registries from components.json
+  // 3rd Degree: Other registries configured in components.json
   if (componentsConfig?.registries) {
     for (const [regScope, regUrl] of Object.entries(componentsConfig.registries)) {
       if (['@lumen', 'lumen', '@shadcn', 'shadcn'].includes(regScope)) continue;
@@ -2145,6 +2163,14 @@ export async function resolveUiComponent(name, options = {}) {
             source: regScope,
             name: normalized,
             scope: regScope,
+            degree: 3,
+            fallback: {
+              active: true,
+              degree: 3,
+              from: 'lumen/shadcn',
+              to: regScope,
+              message: `Component "${normalized}" resolved from third-party registry "${regScope}".`,
+            },
           };
         }
       }
@@ -2159,6 +2185,99 @@ export async function resolveUiComponent(name, options = {}) {
       hint: 'Run "lumen g ui --list" to view all available components.',
     }
   );
+}
+
+/**
+ * Recursively resolves all registry dependencies for a component.
+ * Missing/unscoped dependencies inherit the parent's scope or fall back through Lumen -> Shadcn.
+ *
+ * @param {object} rootComponent The primary resolved component
+ * @param {object} [options={}] Resolution options
+ * @returns {Promise<Array<object>>} Flat list of unique resolved components [root, ...deps]
+ */
+export async function resolveRegistryDependencyTree(rootComponent, options = {}) {
+  if (!rootComponent) return [];
+
+  const visited = new Set();
+  const result = [];
+  const queue = [rootComponent];
+
+  const getCompKey = (c) => (c.scope ? `${c.scope}/${c.name}` : c.name);
+
+  visited.add(getCompKey(rootComponent));
+  visited.add(rootComponent.name);
+  if (rootComponent.scope) {
+    visited.add(`${rootComponent.scope}/${rootComponent.name}`);
+  }
+  result.push(rootComponent);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const deps = current.registryDependencies || [];
+
+    for (const dep of deps) {
+      if (!dep || typeof dep !== 'string') continue;
+
+      const trimmedDep = dep.trim();
+      const parsed = parseComponentIdentifier(trimmedDep);
+
+      // In shadcn registry format, "utils" represents the cn helper, which Lumen manages via ensureCnUtil
+      if (parsed.name === 'utils' || parsed.name === 'cn') {
+        continue;
+      }
+
+      const targetScope = parsed.scope || (current.scope && current.scope !== '@lumen' ? current.scope : null);
+      const rawKey = parsed.scope ? `${parsed.scope}/${parsed.name}` : parsed.name;
+
+      if (visited.has(rawKey) || (targetScope && visited.has(`${targetScope}/${parsed.name}`))) {
+        continue;
+      }
+
+      let resolvedDep = null;
+
+      // 1. If scoped or parent has a custom scope, try resolving in that scope first
+      if (targetScope) {
+        try {
+          resolvedDep = await resolveUiComponent(parsed.name, {
+            ...options,
+            scope: targetScope,
+          });
+        } catch {
+          // If custom scope failed and dep was unscoped, fall through to default resolution
+          resolvedDep = null;
+        }
+      }
+
+      // 2. If unscoped (or custom scope failed), resolve through default 3-degree hierarchy
+      if (!resolvedDep) {
+        try {
+          resolvedDep = await resolveUiComponent(parsed.name, {
+            ...options,
+            scope: null,
+          });
+        } catch {
+          // Silently ignore optional/missing dependencies
+          resolvedDep = null;
+        }
+      }
+
+      if (resolvedDep) {
+        const depKey = getCompKey(resolvedDep);
+        if (!visited.has(depKey) && !visited.has(resolvedDep.name)) {
+          visited.add(depKey);
+          visited.add(resolvedDep.name);
+          visited.add(rawKey);
+          if (resolvedDep.scope) {
+            visited.add(`${resolvedDep.scope}/${resolvedDep.name}`);
+          }
+          result.push(resolvedDep);
+          queue.push(resolvedDep);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -2641,6 +2760,13 @@ export async function executeGenerateUi(name, options = {}) {
     componentsConfig,
   });
 
+  // 4b. Resolve recursive registry dependencies
+  const allComponents = await resolveRegistryDependencyTree(resolved, {
+    ...options,
+    scope,
+    componentsConfig,
+  });
+
   const isTs = manifest.tooling?.language
     ? manifest.tooling.language === 'ts'
     : (componentsConfig?.tsx !== undefined ? Boolean(componentsConfig.tsx) : true);
@@ -2656,75 +2782,80 @@ export async function executeGenerateUi(name, options = {}) {
 
   // 5. Build generation plan
   const plan = [];
+  const processedExportNames = new Set();
 
-  // Primary component files
-  for (const file of resolved.files || []) {
-    let baseFileName = path.basename(file.path);
-    // Replace ts/tsx with js/jsx if project is JS
-    if (!isTs) {
-      baseFileName = baseFileName.replace(/\.tsx$/, '.jsx').replace(/\.ts$/, '.js');
+  for (const comp of allComponents) {
+    const compPascal = comp.pascalName || toPascal(validateName(comp.name));
+    processedExportNames.add(compPascal);
+
+    for (const file of comp.files || []) {
+      let baseFileName = path.basename(file.path);
+      // Replace ts/tsx with js/jsx if project is JS
+      if (!isTs) {
+        baseFileName = baseFileName.replace(/\.tsx$/, '.jsx').replace(/\.ts$/, '.js');
+      }
+
+      const destRelPath = path.posix.join(targetUiDir, baseFileName);
+      const destFullPath = path.resolve(root, destRelPath);
+      assertPathContained(root, destFullPath);
+
+      let content = isTs
+        ? (file.contentTs || file.content || '')
+        : (file.contentJs || file.content || '');
+
+      // If only TS content was provided in remote response, strip types for JS
+      if (!isTs && !file.contentJs && file.contentTs) {
+        content = file.contentTs
+          .replace(/:\s*React\.FC<[^>]+>/g, '')
+          .replace(/interface\s+[\s\S]*?\}\n/g, '')
+          .replace(/type\s+[\s\S]*?;\n/g, '')
+          .replace(/<HTML[A-Za-z]+Element(?:,\s*[^>]+)?>/g, '')
+          .replace(/as\s+any/g, '');
+      }
+
+      if (utilsAlias && utilsAlias !== '@/lib/utils') {
+        content = rewriteUtilsImport(content, utilsAlias);
+      }
+
+      content = applyRscDirective(content, rscEnabled);
+
+      const exists = fs.existsSync(destFullPath);
+      const action = exists ? (options.force ? 'overwrite' : 'skip') : 'create';
+
+      if (!plan.some((p) => p.path === destFullPath)) {
+        plan.push({
+          path: destFullPath,
+          relPath: destRelPath,
+          contents: content,
+          action,
+        });
+      }
     }
-
-    const destRelPath = path.posix.join(targetUiDir, baseFileName);
-    const destFullPath = path.resolve(root, destRelPath);
-    assertPathContained(root, destFullPath);
-
-    let content = isTs
-      ? (file.contentTs || file.content || '')
-      : (file.contentJs || file.content || '');
-
-    // If only TS content was provided in remote response, strip types for JS
-    if (!isTs && !file.contentJs && file.contentTs) {
-      content = file.contentTs
-        .replace(/:\s*React\.FC<[^>]+>/g, '')
-        .replace(/interface\s+[\s\S]*?\}\n/g, '')
-        .replace(/type\s+[\s\S]*?;\n/g, '')
-        .replace(/<HTML[A-Za-z]+Element(?:,\s*[^>]+)?>/g, '')
-        .replace(/as\s+any/g, '');
-    }
-
-    if (utilsAlias && utilsAlias !== '@/lib/utils') {
-      content = rewriteUtilsImport(content, utilsAlias);
-    }
-
-    content = applyRscDirective(content, rscEnabled);
-
-    const exists = fs.existsSync(destFullPath);
-    const action = exists ? (options.force ? 'overwrite' : 'skip') : 'create';
-
-    plan.push({
-      path: destFullPath,
-      relPath: destRelPath,
-      contents: content,
-      action,
-    });
   }
 
-  // Ensure index barrel in paths.ui
+  // Ensure index barrel exports in paths.ui for all generated components
   const indexRelPath = path.posix.join(targetUiDir, `index.${utilExt}`);
   const indexFullPath = path.resolve(root, indexRelPath);
   assertPathContained(root, indexFullPath);
 
-  const exportLine = `export * from './${pascalName}';\n`;
-  if (fs.existsSync(indexFullPath)) {
-    const existingIndex = fs.readFileSync(indexFullPath, 'utf8');
-    if (!existingIndex.includes(`./${pascalName}`)) {
-      const updatedIndex = existingIndex.endsWith('\n')
-        ? `${existingIndex}${exportLine}`
-        : `${existingIndex}\n${exportLine}`;
-      plan.push({
-        path: indexFullPath,
-        relPath: indexRelPath,
-        contents: updatedIndex,
-        action: 'overwrite',
-      });
+  let existingIndex = fs.existsSync(indexFullPath) ? fs.readFileSync(indexFullPath, 'utf8') : '';
+  let updatedIndex = existingIndex;
+  for (const pName of processedExportNames) {
+    const exportLine = `export * from './${pName}';`;
+    if (!updatedIndex.includes(`./${pName}`)) {
+      if (updatedIndex && !updatedIndex.endsWith('\n')) {
+        updatedIndex += '\n';
+      }
+      updatedIndex += `${exportLine}\n`;
     }
-  } else {
+  }
+
+  if (updatedIndex !== existingIndex) {
     plan.push({
       path: indexFullPath,
       relPath: indexRelPath,
-      contents: exportLine,
-      action: 'create',
+      contents: updatedIndex,
+      action: existingIndex ? 'overwrite' : 'create',
     });
   }
 
@@ -2746,7 +2877,7 @@ export async function executeGenerateUi(name, options = {}) {
   });
 
   // 7. Handle dependencies in package.json
-  const rawDeps = resolved.dependencies || [];
+  const rawDeps = Array.from(new Set(allComponents.flatMap((c) => c.dependencies || [])));
   const requiredDeps = Array.from(new Set([...rawDeps, 'clsx', 'tailwind-merge']));
   const depChecksBefore = checkUiDependencies(root, requiredDeps);
   const missingDeps = depChecksBefore.filter((d) => !d.installed).map((d) => d.name);
@@ -2772,6 +2903,13 @@ export async function executeGenerateUi(name, options = {}) {
   }
 
   // 9. Format output
+  const registryDepsInfo = allComponents.slice(1).map((c) => ({
+    name: c.name,
+    fullName: c.fullName || (c.scope ? `${c.scope}/${c.name}` : c.name),
+    source: c.source,
+    degree: c.degree || 1,
+  }));
+
   if (options.json) {
     const payload = {
       success: true,
@@ -2781,10 +2919,13 @@ export async function executeGenerateUi(name, options = {}) {
       scope: scope || null,
       pascalName,
       source: resolved.source,
+      degree: resolved.degree || 1,
+      fallback: resolved.fallback || null,
       type: resolved.type || 'primitive',
       targetDir: targetUiDir,
       dryRun: Boolean(options.dryRun),
       force: Boolean(options.force),
+      registryDependencies: registryDepsInfo,
       created: result.created,
       skipped: result.skipped,
       overwritten: result.overwritten,
@@ -2796,17 +2937,41 @@ export async function executeGenerateUi(name, options = {}) {
     };
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   } else {
+    const degreeLabel =
+      resolved.degree === 2
+        ? ' (2nd-degree contingency fallback)'
+        : resolved.degree === 3
+        ? ' (3rd-degree fallback)'
+        : '';
+
     const sourceLabel =
       resolved.source === 'lumen'
         ? 'Lumen Registry'
         : resolved.source === 'shadcn'
-        ? 'Shadcn UI fallback'
+        ? 'Shadcn UI'
         : `${resolved.source} registry`;
 
     if (options.dryRun) {
-      process.stdout.write(`\n[DRY RUN] Plan for UI component "${pascalName}" (resolved from ${sourceLabel}):\n`);
+      process.stdout.write(`\n[DRY RUN] Plan for UI component "${pascalName}" (resolved from ${sourceLabel}${degreeLabel}):\n`);
     } else {
-      process.stdout.write(`\nResolved "${fullName}" from ${sourceLabel}\n`);
+      process.stdout.write(`\nResolved "${fullName}" from ${sourceLabel}${degreeLabel}\n`);
+    }
+
+    // Notices based on fallback degree (Confirmed User Decision)
+    if (resolved.fallback?.active) {
+      if (resolved.degree === 2) {
+        process.stdout.write(`  ℹ Notice: ${resolved.fallback.message}\n`);
+      } else if (resolved.degree === 3) {
+        process.stdout.write(`  ⚠ Warning: ${resolved.fallback.message}\n`);
+      }
+    }
+
+    if (registryDepsInfo.length > 0) {
+      const depNames = registryDepsInfo.map((d) => d.fullName).join(', ');
+      process.stdout.write(`  + Resolved ${registryDepsInfo.length} registry dependency/ies: ${depNames}\n`);
+    }
+
+    if (!options.dryRun) {
       process.stdout.write(`Generated UI component "${pascalName}":\n`);
     }
 
@@ -2848,10 +3013,13 @@ export async function executeGenerateUi(name, options = {}) {
     scope: scope || null,
     pascalName,
     source: resolved.source,
+    degree: resolved.degree || 1,
+    fallback: resolved.fallback || null,
     type: resolved.type || 'primitive',
     targetDir: targetUiDir,
     dryRun: Boolean(options.dryRun),
     force: Boolean(options.force),
+    registryDependencies: registryDepsInfo,
     packages: finalDepStatus,
     ...result,
   };
