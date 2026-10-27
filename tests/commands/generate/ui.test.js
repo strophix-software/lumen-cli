@@ -676,6 +676,32 @@ describe('lumen generate ui command', () => {
       expect(fs.readFileSync(componentFile, 'utf8')).not.toBe('// CUSTOM BUTTON CONTENT\n');
       expect(fs.readFileSync(componentFile, 'utf8')).toContain('export interface ButtonProps');
     });
+
+    it('respects pre-existing kebab-case component (button.tsx) without creating duplicate Button.tsx', async () => {
+      const fixtures = await loadValidFixtures();
+      const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+      fs.writeFileSync(
+        path.join(tmpDir, 'lumen.config.json'),
+        JSON.stringify(fixture.manifest, null, 2)
+      );
+
+      const uiDir = path.join(tmpDir, fixture.manifest.paths.ui);
+      fs.mkdirSync(uiDir, { recursive: true });
+
+      // Pre-create button.tsx and index.ts as scaffolded by create-lumen 2.0.0-beta.6
+      const kebabButton = path.join(uiDir, 'button.tsx');
+      fs.writeFileSync(kebabButton, 'export function Button() { return <button>kebab</button>; }\n');
+      const indexFile = path.join(uiDir, 'index.ts');
+      fs.writeFileSync(indexFile, 'export * from "./button";\n');
+
+      const result = await executeGenerateUi('button', { cwd: tmpDir });
+      expect(result.skipped).toContain(path.posix.join(fixture.manifest.paths.ui, 'button.tsx'));
+      expect(fs.existsSync(path.join(uiDir, 'Button.tsx'))).toBe(false);
+
+      const indexContent = fs.readFileSync(indexFile, 'utf8');
+      expect(indexContent).toBe('export * from "./button";\n');
+      expect(indexContent).not.toContain('./Button');
+    });
   });
 
   describe('Agent context sync (AGENTS.md)', () => {
