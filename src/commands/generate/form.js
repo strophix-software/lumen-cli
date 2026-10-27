@@ -10,14 +10,64 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FORM_TEMPLATES_DIR = path.resolve(__dirname, '../../../templates/form');
 
-const REQUIRED_PACKAGES = ['react-hook-form', 'zod', '@hookform/resolvers'];
+export const REQUIRED_PACKAGES = ['react-hook-form', 'zod', '@hookform/resolvers'];
+
+export const REQUIRED_PACKAGE_VERSIONS = {
+  'react-hook-form': '^7.54.0',
+  zod: '^3.24.0',
+  '@hookform/resolvers': '^3.10.0',
+};
+
+/**
+ * Adds missing peer/form dependencies to package.json.
+ * @param {string} root Project root directory
+ * @param {string[]} missingDeps Missing dependency names
+ * @param {{ dryRun?: boolean }} options
+ * @returns {string[]} Newly added package names
+ */
+export function addPeerDependencies(root, missingDeps = [], { dryRun = false } = {}) {
+  if (missingDeps.length === 0 || dryRun) return [];
+
+  const pkgPath = path.join(root, 'package.json');
+  if (!fs.existsSync(pkgPath)) return [];
+
+  try {
+    const raw = fs.readFileSync(pkgPath, 'utf8');
+    const pkg = JSON.parse(raw);
+
+    if (!pkg.dependencies) {
+      pkg.dependencies = {};
+    }
+
+    const added = [];
+    for (const dep of missingDeps) {
+      if (!pkg.dependencies[dep] && (!pkg.devDependencies || !pkg.devDependencies[dep])) {
+        const version = REQUIRED_PACKAGE_VERSIONS[dep] || '^1.0.0';
+        pkg.dependencies[dep] = version;
+        added.push(dep);
+      }
+    }
+
+    if (added.length > 0) {
+      fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+    }
+
+    return added;
+  } catch {
+    return [];
+  }
+}
+
+export const installPeerDependencies = addPeerDependencies;
+export const installFormDependencies = addPeerDependencies;
 
 /**
  * Check dependencies in target project's package.json
  * @param {string} root Project root directory
- * @returns {Array<{ name: string, installed: boolean }>}
+ * @param {string[]} [newlyAdded] List of newly added package names
+ * @returns {Array<{ name: string, installed: boolean, added?: boolean }>}
  */
-export function checkFormDependencies(root) {
+export function checkFormDependencies(root, newlyAdded) {
   const pkgPath = path.join(root, 'package.json');
   let dependencies = {};
 
@@ -34,10 +84,18 @@ export function checkFormDependencies(root) {
     }
   }
 
-  return REQUIRED_PACKAGES.map((pkg) => ({
-    name: pkg,
-    installed: Object.prototype.hasOwnProperty.call(dependencies, pkg),
-  }));
+  return REQUIRED_PACKAGES.map((pkg) => {
+    const installed = Object.prototype.hasOwnProperty.call(dependencies, pkg);
+    const isAdded = Array.isArray(newlyAdded) ? newlyAdded.includes(pkg) : false;
+    const item = {
+      name: pkg,
+      installed: installed || isAdded,
+    };
+    if (newlyAdded !== undefined) {
+      item.added = isAdded;
+    }
+    return item;
+  });
 }
 
 /**
@@ -259,8 +317,16 @@ export async function executeGenerateForm(name, options = {}) {
     await syncAgentContext(root);
   }
 
-  // Check required package status in project
-  const packageChecks = checkFormDependencies(root);
+  // Handle dependencies in package.json
+  const depChecksBefore = checkFormDependencies(root);
+  const missingDeps = depChecksBefore.filter((d) => !d.installed).map((d) => d.name);
+
+  let newlyAddedDeps = [];
+  if (!options.dryRun && missingDeps.length > 0) {
+    newlyAddedDeps = addPeerDependencies(root, missingDeps, { dryRun: false });
+  }
+
+  const packageChecks = checkFormDependencies(root, newlyAddedDeps);
 
   // CLI output formatting
   if (options.json) {
@@ -306,9 +372,13 @@ export async function executeGenerateForm(name, options = {}) {
 
     process.stdout.write(`\nRequired packages:\n`);
     for (const pkg of packageChecks) {
-      const icon = pkg.installed ? '✔' : '⚠';
-      const status = pkg.installed ? 'installed' : 'missing (install with npm i ' + pkg.name + ')';
-      process.stdout.write(`  ${icon} ${pkg.name}: ${status}\n`);
+      if (pkg.added) {
+        process.stdout.write(`  + ${pkg.name}: added to package.json (run npm install)\n`);
+      } else if (pkg.installed) {
+        process.stdout.write(`  ✔ ${pkg.name}: installed\n`);
+      } else {
+        process.stdout.write(`  ⚠ ${pkg.name}: missing (install with npm i ${pkg.name})\n`);
+      }
     }
   }
 
