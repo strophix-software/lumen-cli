@@ -1,15 +1,9 @@
 import { create } from 'zustand';
 
 export interface {{Name}}State {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
-  reset: () => void;
+{{stateProperties}}
 }
 
 export const use{{Name}}Store = create<{{Name}}State>((set) => ({
-  count: 0,
-  increment: () => set((state) => ({ count: state.count + 1 })),
-  decrement: () => set((state) => ({ count: state.count - 1 })),
-  reset: () => set({ count: 0 }),
+{{stateInitial}}
 }));

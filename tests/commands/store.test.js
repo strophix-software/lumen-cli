@@ -218,6 +218,97 @@ describe('lumen generate store command', () => {
     parseTsSmoke(storeFile);
   });
 
+  it('generates clean zustand store when --empty is passed', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(fixture.manifest, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'my-app', dependencies: { zustand: '^5.0.0' } }, null, 2)
+    );
+
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'store', 'user', '--empty']);
+
+    const targetDir = path.join(tmpDir, 'src/shared/stores');
+    const storeFile = path.join(targetDir, 'user-store.ts');
+    expect(fs.existsSync(storeFile)).toBe(true);
+
+    const storeContent = fs.readFileSync(storeFile, 'utf8');
+    expect(storeContent).toContain("import { create } from 'zustand'");
+    expect(storeContent).toContain('export interface UserState');
+    expect(storeContent).toContain('// Define state properties and actions here');
+    expect(storeContent).toContain('// Initial state and actions');
+    expect(storeContent).not.toContain('count: number');
+    expect(storeContent).not.toContain('increment: () => void');
+
+    parseTsSmoke(storeFile);
+  });
+
+  it('generates clean zustand store with --persist and -e', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(fixture.manifest, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'my-app', dependencies: { zustand: '^5.0.0' } }, null, 2)
+    );
+
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'store', 'auth', '--persist', '-e']);
+
+    const targetDir = path.join(tmpDir, 'src/shared/stores');
+    const storeFile = path.join(targetDir, 'auth-store.ts');
+    expect(fs.existsSync(storeFile)).toBe(true);
+
+    const storeContent = fs.readFileSync(storeFile, 'utf8');
+    expect(storeContent).toContain("import { persist } from 'zustand/middleware'");
+    expect(storeContent).toContain('export interface AuthState');
+    expect(storeContent).toContain('// Define state properties and actions here');
+    expect(storeContent).toContain("name: 'auth-storage'");
+    expect(storeContent).not.toContain('count: number');
+
+    parseTsSmoke(storeFile);
+  });
+
+  it('generates clean React context store when --empty is passed', async () => {
+    const fixtures = await loadValidFixtures();
+    const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');
+    fs.writeFileSync(
+      path.join(tmpDir, 'lumen.config.json'),
+      JSON.stringify(fixture.manifest, null, 2)
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'my-app', dependencies: { react: '^19.0.0' } }, null, 2)
+    );
+
+    await program.parseAsync(['node', 'lumen', '-c', tmpDir, 'g', 'store', 'workspace', '--empty']);
+
+    const targetDir = path.join(tmpDir, 'src/shared/stores');
+    const contextFile = path.join(targetDir, 'WorkspaceContext.ts');
+    const providerFile = path.join(targetDir, 'WorkspaceProvider.tsx');
+
+    expect(fs.existsSync(contextFile)).toBe(true);
+    expect(fs.existsSync(providerFile)).toBe(true);
+
+    const contextContent = fs.readFileSync(contextFile, 'utf8');
+    expect(contextContent).toContain('// Define context values and methods here');
+    expect(contextContent).not.toContain('count: number');
+
+    const providerContent = fs.readFileSync(providerFile, 'utf8');
+    expect(providerContent).toContain('const value = {};');
+    expect(providerContent).toContain('value={{ ...value }}');
+    expect(providerContent).not.toContain('setCount');
+
+    parseTsSmoke(contextFile);
+    parseTsSmoke(providerFile);
+  });
+
   it('fails with LumenError when --persist is passed but state library is not zustand', async () => {
     const fixtures = await loadValidFixtures();
     const fixture = fixtures.find((f) => f.name === 'react-vite-feature-based');

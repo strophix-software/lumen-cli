@@ -583,6 +583,327 @@ export function EmptyState({
       },
     ],
   },
+  'status-badge': {
+    name: 'status-badge',
+    source: 'lumen',
+    type: 'block',
+    title: 'Status Badge',
+    description: 'Lumen status badge component with color variants and optional indicator dot',
+    dependencies: ['clsx', 'tailwind-merge'],
+    files: [
+      {
+        path: 'StatusBadge.tsx',
+        contentTs: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export type StatusVariant =
+  | "default"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info"
+  | "neutral"
+  | "active"
+  | "closed"
+  | "cancelled"
+  | "deserted";
+
+export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  variant?: StatusVariant;
+  label?: string;
+  dot?: boolean;
+  children?: React.ReactNode;
+}
+
+const variantStyles: Record<StatusVariant, { badge: string; dot: string }> = {
+  default: {
+    badge: "bg-muted text-muted-foreground border-border",
+    dot: "bg-muted-foreground",
+  },
+  neutral: {
+    badge: "bg-secondary text-secondary-foreground border-border",
+    dot: "bg-secondary-foreground",
+  },
+  success: {
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-500",
+  },
+  active: {
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-500",
+  },
+  warning: {
+    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    dot: "bg-amber-500",
+  },
+  danger: {
+    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    dot: "bg-destructive",
+  },
+  cancelled: {
+    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    dot: "bg-destructive",
+  },
+  info: {
+    badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+    dot: "bg-sky-500",
+  },
+  closed: {
+    badge: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20",
+    dot: "bg-slate-500",
+  },
+  deserted: {
+    badge: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+    dot: "bg-orange-500",
+  },
+};
+
+export function StatusBadge({
+  variant = "default",
+  label,
+  dot = true,
+  children,
+  className,
+  ...props
+}: StatusBadgeProps) {
+  const styles = variantStyles[variant] || variantStyles.default;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-tight transition-colors",
+        styles.badge,
+        className
+      )}
+      {...props}
+    >
+      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} aria-hidden="true" />}
+      {children || label || variant}
+    </span>
+  );
+}
+`,
+        contentJs: `import * as React from "react";
+import { cn } from "@/lib/utils";
+
+const variantStyles = {
+  default: {
+    badge: "bg-muted text-muted-foreground border-border",
+    dot: "bg-muted-foreground",
+  },
+  neutral: {
+    badge: "bg-secondary text-secondary-foreground border-border",
+    dot: "bg-secondary-foreground",
+  },
+  success: {
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-500",
+  },
+  active: {
+    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-500",
+  },
+  warning: {
+    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    dot: "bg-amber-500",
+  },
+  danger: {
+    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    dot: "bg-destructive",
+  },
+  cancelled: {
+    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    dot: "bg-destructive",
+  },
+  info: {
+    badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+    dot: "bg-sky-500",
+  },
+  closed: {
+    badge: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20",
+    dot: "bg-slate-500",
+  },
+  deserted: {
+    badge: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+    dot: "bg-orange-500",
+  },
+};
+
+export function StatusBadge({
+  variant = "default",
+  label,
+  dot = true,
+  children,
+  className,
+  ...props
+}) {
+  const styles = variantStyles[variant] || variantStyles.default;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-tight transition-colors",
+        styles.badge,
+        className
+      )}
+      {...props}
+    >
+      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} aria-hidden="true" />}
+      {children || label || variant}
+    </span>
+  );
+}
+`,
+      },
+    ],
+  },
+  'confirm-dialog': {
+    name: 'confirm-dialog',
+    source: 'lumen',
+    type: 'block',
+    title: 'Confirm Dialog',
+    description: 'Lumen accessible modal dialog for destructive or critical confirmation flows',
+    dependencies: ['@radix-ui/react-dialog', 'clsx', 'tailwind-merge'],
+    files: [
+      {
+        path: 'ConfirmDialog.tsx',
+        contentTs: `import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { cn } from "@/lib/utils";
+
+export interface ConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: "danger" | "default";
+  onConfirm: () => void | Promise<void>;
+  isLoading?: boolean;
+}
+
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  variant = "default",
+  onConfirm,
+  isLoading = false,
+}: ConfirmDialogProps) {
+  const handleConfirm = async () => {
+    await onConfirm();
+  };
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 sm:rounded-lg">
+          <div className="flex flex-col space-y-2 text-center sm:text-left">
+            <DialogPrimitive.Title className="text-lg font-semibold tracking-tight text-foreground">
+              {title}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              {description}
+            </DialogPrimitive.Description>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => onOpenChange(false)}
+              className="mt-2 inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground sm:mt-0"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={handleConfirm}
+              className={cn(
+                "inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+                variant === "danger"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
+            >
+              {isLoading ? "Loading..." : confirmLabel}
+            </button>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+`,
+        contentJs: `import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { cn } from "@/lib/utils";
+
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  variant = "default",
+  onConfirm,
+  isLoading = false,
+}) {
+  const handleConfirm = async () => {
+    await onConfirm();
+  };
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 sm:rounded-lg">
+          <div className="flex flex-col space-y-2 text-center sm:text-left">
+            <DialogPrimitive.Title className="text-lg font-semibold tracking-tight text-foreground">
+              {title}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-sm text-muted-foreground">
+              {description}
+            </DialogPrimitive.Description>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => onOpenChange(false)}
+              className="mt-2 inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground sm:mt-0"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={handleConfirm}
+              className={cn(
+                "inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+                variant === "danger"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
+            >
+              {isLoading ? "Loading..." : confirmLabel}
+            </button>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+`,
+      },
+    ],
+  },
 };
 
 /**

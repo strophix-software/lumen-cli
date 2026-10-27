@@ -22,6 +22,7 @@ export function registerStore(generate) {
     .description('Generate global state store matching project state library')
     .option('--feature <name>', 'Generate store within a feature directory')
     .option('--persist', 'Add zustand persist middleware (zustand only)')
+    .option('-e, --empty', 'Generate clean store boilerplate without counter logic')
     .option('--dry-run', 'Preview changes without writing to disk')
     .option('--force', 'Overwrite existing files')
     .addHelpText(
@@ -29,6 +30,7 @@ export function registerStore(generate) {
       `
 Examples:
   $ lumen generate store auth
+  $ lumen g store auth --empty
   $ lumen g store cart --persist
   $ lumen g store user-profile --feature auth
   $ lumen g store settings --dry-run
@@ -107,9 +109,35 @@ Examples:
         });
       }
 
+      const isEmpty = Boolean(options.empty);
+
+      const stateProperties = isEmpty
+        ? '  // Define state properties and actions here'
+        : '  count: number;\n  increment: () => void;\n  decrement: () => void;\n  reset: () => void;';
+
+      const stateInitial = isEmpty
+        ? '  // Initial state and actions'
+        : '  count: 0,\n  increment: () => set((state) => ({ count: state.count + 1 })),\n  decrement: () => set((state) => ({ count: state.count - 1 })),\n  reset: () => set({ count: 0 }),';
+
+      const contextProperties = isEmpty
+        ? '  // Define context values and methods here'
+        : '  count: number;\n  increment: () => void;\n  decrement: () => void;\n  reset: () => void;';
+
+      const contextProviderBody = isEmpty
+        ? '  // Define provider state and methods here\n  const value = {};'
+        : '  const [count, setCount] = useState(0);\n\n  const increment = () => setCount((prev) => prev + 1);\n  const decrement = () => setCount((prev) => prev - 1);\n  const reset = () => setCount(0);';
+
+      const contextValue = isEmpty ? '...value' : 'count, increment, decrement, reset';
+
       const vars = {
         ...buildNameVariants(validatedName),
         persist: Boolean(options.persist),
+        empty: isEmpty,
+        stateProperties,
+        stateInitial,
+        contextProperties,
+        contextProviderBody,
+        contextValue,
       };
 
       // Plan generation
@@ -139,6 +167,7 @@ Examples:
           kind: 'store',
           name: validatedName,
           stateLib,
+          empty: isEmpty,
           targetDir,
           dryRun: isDryRun,
           force: isForce,

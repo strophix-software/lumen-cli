@@ -190,6 +190,16 @@ describe('lumen generate ui command', () => {
       const stat = await resolveUiComponent('stat-card');
       expect(stat.source).toBe('lumen');
       expect(stat.name).toBe('stat-card');
+
+      const badge = await resolveUiComponent('status-badge');
+      expect(badge.source).toBe('lumen');
+      expect(badge.name).toBe('status-badge');
+      expect(badge.type).toBe('block');
+
+      const dialog = await resolveUiComponent('confirm-dialog');
+      expect(dialog.source).toBe('lumen');
+      expect(dialog.name).toBe('confirm-dialog');
+      expect(dialog.dependencies).toContain('@radix-ui/react-dialog');
     });
 
     it('falls back to Shadcn transparently for base primitives', async () => {

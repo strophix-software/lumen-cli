@@ -1,10 +1,7 @@
 import { createContext } from 'react';
 
 export interface {{Name}}ContextValue {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
-  reset: () => void;
+{{contextProperties}}
 }
 
 export const {{Name}}Context = createContext<{{Name}}ContextValue | null>(null);
