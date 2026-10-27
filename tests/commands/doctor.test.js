@@ -68,6 +68,15 @@ describe('lumen doctor command (#61, #67)', () => {
       const result = auditDatabaseUrl('not a valid url');
       expect(result.ok).toBe(false);
       expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain('URL-encoded');
+    });
+
+    it('detects unreplaced placeholder tokens (e.g. [YOUR-PASSWORD])', () => {
+      const url = 'postgresql://postgres:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
+      const result = auditDatabaseUrl(url);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Unconfigured placeholder');
+      expect(result.warnings[0]).toContain('[YOUR-PASSWORD]');
     });
   });
 

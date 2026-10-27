@@ -49,6 +49,17 @@ export function auditDatabaseUrl(urlStr, { expectedPort = 6543, requirePgbouncer
     return { ok: false, error: 'URL is not defined', warnings: ['Database URL is missing or empty.'] };
   }
 
+  // Detect unreplaced placeholder tokens like [YOUR-PASSWORD] or <password>
+  if (/\[.*?\]|<.*?>/.test(urlStr)) {
+    return {
+      ok: false,
+      error: 'Unconfigured placeholder in database URL.',
+      warnings: [
+        'Database URL contains unreplaced placeholder tokens (e.g. [YOUR-PASSWORD]). Please replace it with your actual database password.',
+      ],
+    };
+  }
+
   try {
     const parsed = new URL(urlStr);
     const port = parsed.port
@@ -81,7 +92,9 @@ export function auditDatabaseUrl(urlStr, { expectedPort = 6543, requirePgbouncer
     return {
       ok: false,
       error: 'Malformed database URL.',
-      warnings: ['Could not parse database connection string as a valid URL.'],
+      warnings: [
+        'Could not parse database connection string as a valid URL. If password contains special characters, ensure they are URL-encoded.',
+      ],
     };
   }
 }

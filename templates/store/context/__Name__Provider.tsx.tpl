@@ -6,14 +6,10 @@ export interface {{Name}}ProviderProps {
 }
 
 export function {{Name}}Provider({ children }: {{Name}}ProviderProps) {
-  const [count, setCount] = useState(0);
-
-  const increment = () => setCount((prev) => prev + 1);
-  const decrement = () => setCount((prev) => prev - 1);
-  const reset = () => setCount(0);
+{{contextProviderBody}}
 
   return (
-    <{{Name}}Context.Provider value={{ count, increment, decrement, reset }}>
+    <{{Name}}Context.Provider value={{ {{contextValue}} }}>
       {children}
     </{{Name}}Context.Provider>
   );

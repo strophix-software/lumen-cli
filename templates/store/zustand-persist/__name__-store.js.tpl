@@ -4,10 +4,7 @@ import { persist } from 'zustand/middleware';
 export const use{{Name}}Store = create(
   persist(
     (set) => ({
-      count: 0,
-      increment: () => set((state) => ({ count: state.count + 1 })),
-      decrement: () => set((state) => ({ count: state.count - 1 })),
-      reset: () => set({ count: 0 }),
+{{stateInitial}}
     }),
     {
       name: '{{nameKebab}}-storage',
